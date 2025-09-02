@@ -197,6 +197,37 @@ type AdditionalWorkerNodePoolsItemsProperties struct {
 	HAZones       *Type          `json:"haZones,omitempty"`
 	AutoScalerMin AutoscalerType `json:"autoScalerMin,omitempty"`
 	AutoScalerMax AutoscalerType `json:"autoScalerMax,omitempty"`
+	Labels        Type           `json:"labels,omitempty"`
+	Annotations   Type           `json:"annotations,omitempty"`
+	TaintsList    TaintsList     `json:"taints,omitempty"`
+}
+
+type TaintsOptionsListProperties struct {
+	Key    Type `json:"key,omitempty"`
+	Value  Type `json:"value,omitempty"`
+	Effect Type `json:"effect,omitempty"`
+}
+
+type TaintsList struct {
+	Type
+	Properties TaintsOptions `json:"properties,omitempty"`
+}
+
+type TaintsOptions struct {
+	Type
+	List TaintsOptionsList `json:"list,omitempty"`
+}
+
+type TaintsOptionsList struct {
+	Type
+	Items TaintsOptionsListItems `json:"items,omitempty"`
+}
+
+type TaintsOptionsListItems struct {
+	Type
+	ControlsOrder []string                    `json:"_controlsOrder,omitempty"`
+	Properties    TaintsOptionsListProperties `json:"properties,omitempty"`
+	Required      []string                    `json:"required,omitempty"`
 }
 
 type OIDCs struct {
@@ -709,7 +740,7 @@ func NewAdditionalWorkerNodePoolsSchema(machineTypesDisplay map[string]string, m
 			UniqueItems: true,
 			Description: "Specifies the list of additional worker node pools."},
 		Items: AdditionalWorkerNodePoolsItems{
-			ControlsOrder: []string{"name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"},
+			ControlsOrder: []string{"name", "machineType", "haZones", "autoScalerMin", "autoScalerMax", "labels", "annotations", "taints"},
 			Required:      []string{"name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"},
 			Type: Type{
 				Type: "object",
@@ -731,7 +762,7 @@ func NewAdditionalWorkerNodePoolsSchema(machineTypesDisplay map[string]string, m
 				},
 				HAZones: &Type{
 					Type:        "boolean",
-					Title:       "HA zones",
+					Title:       "HA zones1",
 					Default:     true,
 					Description: "Specifies whether high availability (HA) zones are supported. This setting is permanent and cannot be changed later. If HA is disabled, all resources are placed in a single, randomly selected zone. Disabled HA allows setting autoScalerMin to 0 and autoScalerMax to 1, which helps reduce costs. It is not recommended for production environments. When enabled, resources are distributed across three zones to enhance fault tolerance. Enabled HA requires setting autoScalerMin to the minimal value 3.",
 				},
@@ -748,6 +779,67 @@ func NewAdditionalWorkerNodePoolsSchema(machineTypesDisplay map[string]string, m
 					Maximum:     autoscalerMaximumValue,
 					Default:     autoscalerMaxDefaultValue,
 					Description: "Specifies the maximum number of virtual machines to create.",
+				},
+				Labels: Type{
+					Type: "array",
+					Items: &Type{
+						Type:    "string",
+						Pattern: "^[^=]+=[^=]+$",
+					},
+					Description: "A list of key=value pairs that describes labels to be applied to the nodes in the worker pool. For example, `key1=value1`.",
+				},
+				Annotations: Type{
+					Type: "array",
+					Items: &Type{
+						Type:    "string",
+						Pattern: "^[^=]+=[^=]+$",
+					},
+					Description: "A list of key=value pairs that describes annotations to be applied to the nodes in the worker pool. For example, `key1=value1`.",
+				},
+				// ...existing code...
+				TaintsList: TaintsList{
+					Type: Type{
+						Type:        "object",
+						Title:       "Taints List",
+						Description: "A list of taints to be applied to the nodes in the worker pool. Taints are used to repel a set of pods from being scheduled on the nodes. For example, `key=value:NoSchedule`.",
+					},
+					Properties: TaintsOptions{
+						List: TaintsOptionsList{
+							Type: Type{
+								Type: "array",
+							},
+							Items: TaintsOptionsListItems{
+								ControlsOrder: []string{"key", "value", "effect"},
+								Type: Type{
+									Type: "object",
+								},
+								Properties: TaintsOptionsListProperties{
+									Key: Type{
+										Type:        "string",
+										MinLength:   1,
+										Description: "The taint key to be applied to the nodes in the worker pool.",
+									},
+									Value: Type{
+										Type:        "string",
+										MinLength:   1,
+										Description: "The taint value to be applied to the nodes in the worker pool.",
+									},
+									Effect: Type{
+										Type:        "string",
+										Description: "The effect of the taint to be applied to the nodes in the worker pool.",
+										Enum:        ToInterfaceSlice([]string{"NoSchedule", "PreferNoSchedule", "NoExecute"}),
+										MinLength:   1,
+										EnumDisplayName: map[string]string{
+											"NoSchedule":       "NoSchedule - Pods that do not tolerate this taint will not be scheduled on the node.",
+											"PreferNoSchedule": "PreferNoSchedule - The system will try to avoid scheduling pods that do not tolerate this taint on the node, but it is not guaranteed.",
+											"NoExecute":        "NoExecute - Pods that do not tolerate this taint will be evicted from the node if they are already running on it, and they will not be scheduled on the node if they are not already running on it.",
+										},
+									},
+								},
+								Required: []string{"key", "value", "effect"},
+							},
+						},
+					},
 				},
 			},
 		},
