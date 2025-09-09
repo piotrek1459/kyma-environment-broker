@@ -53,8 +53,6 @@ kubeconfig:
     issuerURL: https://kyma.accounts.ondemand.com
 
 kymaVersion: 2.20.0
-lifecycleManager:
-    disabled: true
 
 infrastructureManager:
     # when infrastructure is disabled, the GerdenerCluster syncer is disabled as well
