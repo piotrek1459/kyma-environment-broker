@@ -74,6 +74,7 @@ const (
 	GCP               CloudProvider = "GCP"
 	UnknownProvider   CloudProvider = "unknown"
 	SapConvergedCloud CloudProvider = "SapConvergedCloud"
+	Alicloud          CloudProvider = "Alicloud"
 )
 
 type ProvisioningParametersDTO struct {
