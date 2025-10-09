@@ -2610,6 +2610,14 @@ func TestProvisioning_ResolveSubscriptionSecretStepEnabled(t *testing.T) {
 			expectedProvider:         "openstack",
 			expectedSubscriptionName: "sb-openstack_eu-de-2",
 		},
+		"alicloud cn-beijing": {
+			planID:         broker.AlicloudPlanID,
+			region:         "cn-beijing",
+			platformRegion: "cf-eu21",
+
+			expectedProvider:         "alicloud",
+			expectedSubscriptionName: "sb-alicloud",
+		},
 	} {
 		t.Run(tn, func(t *testing.T) {
 			// given
