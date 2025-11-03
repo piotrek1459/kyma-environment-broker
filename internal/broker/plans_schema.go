@@ -515,7 +515,7 @@ func NewModulesSchema(rejectUnsupportedParameters bool) *Modules {
 								Name: Type{
 									Type:        "string",
 									Title:       "Name",
-									Description: "Check a module technical name on this <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/kyma-modules?version=Cloud>website</a>.",
+									Description: "Check a module technical name on this <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/kyma-modules?version=Cloud>website</a>. You can only use a module technical name once.",
 									MinLength:   1,
 								},
 								Channel: Type{
