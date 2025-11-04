@@ -133,4 +133,71 @@ func TestOverrideKymaModules(t *testing.T) {
 		execTest(t, nil, givenKymaTemplateWithModules, defaultModules)
 		execTest(t, nil, givenKymaTemplateWithoutModules, "kyma-no-modules.yaml")
 	})
+
+	t.Run("default modules with channel are installed when default is true and channel is specified", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Default = ptr.Bool(true)
+		modules.Channel = ptr.String("fast")
+		execTest(t, modules, givenKymaTemplateWithModules, "kyma-with-keda-and-btp-operator-fast-channel.yaml")
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-no-modules.yaml")
+	})
+
+	t.Run("default modules with regular channel are installed when default is true and channel is regular", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Default = ptr.Bool(true)
+		modules.Channel = ptr.String("regular")
+		execTest(t, modules, givenKymaTemplateWithModules, "kyma-with-keda-and-btp-operator-regular-channel.yaml")
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-no-modules.yaml")
+	})
+
+	t.Run("custom modules with default channel are applied when channel is specified", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Channel = ptr.String("fast")
+		modules.List = make([]pkg.ModuleDTO, 0)
+		m1 := pkg.ModuleDTO{
+			Name: technicalNameBtpManager,
+		}
+		m2 := pkg.ModuleDTO{
+			Name:    technicalNameKeda,
+			Channel: internal.Regular, // this should override the default channel
+		}
+		modules.List = append(modules.List, m1, m2)
+		execTest(t, modules, givenKymaTemplateWithModules, "kyma-with-modules-default-and-override-channel.yaml")
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-with-modules-default-and-override-channel.yaml")
+	})
+
+	t.Run("custom modules with default channel applied to all when no individual channels specified", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Channel = ptr.String("regular")
+		modules.List = make([]pkg.ModuleDTO, 0)
+		m1 := pkg.ModuleDTO{
+			Name: technicalNameBtpManager,
+		}
+		m2 := pkg.ModuleDTO{
+			Name: technicalNameKeda,
+		}
+		modules.List = append(modules.List, m1, m2)
+		execTest(t, modules, givenKymaTemplateWithModules, "kyma-with-modules-all-regular-channel.yaml")
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-with-modules-all-regular-channel.yaml")
+	})
+
+	t.Run("empty channel string should not apply default channel", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Channel = ptr.String("") // empty string should be treated as no channel
+		modules.List = make([]pkg.ModuleDTO, 0)
+		m1 := pkg.ModuleDTO{
+			Name: technicalNameBtpManager,
+		}
+		modules.List = append(modules.List, m1)
+		execTest(t, modules, givenKymaTemplateWithModules, "kyma-with-btp-operator-no-channel.yaml")
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-with-btp-operator-no-channel.yaml")
+	})
+
+	t.Run("default true with empty channel should behave as original default", func(t *testing.T) {
+		modules := &pkg.ModulesDTO{}
+		modules.Default = ptr.Bool(true)
+		modules.Channel = ptr.String("") // empty string should not trigger channel override
+		execTest(t, modules, givenKymaTemplateWithModules, defaultModules)
+		execTest(t, modules, givenKymaTemplateWithoutModules, "kyma-no-modules.yaml")
+	})
 }

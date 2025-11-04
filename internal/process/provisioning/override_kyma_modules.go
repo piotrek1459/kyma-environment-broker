@@ -48,12 +48,20 @@ func (k *OverrideKymaModules) Run(operation internal.Operation, logger *slog.Log
 
 	modulesParams := operation.ProvisioningParameters.Parameters.Modules
 	if modulesParams != nil {
-		defaultModulesSetToFalse := modulesParams.Default != nil && !*modulesParams.Default  // 1 case
-		customModulesListPassed := modulesParams.Default == nil && modulesParams.List != nil // 2 & 3 case
-		overrideModules := defaultModulesSetToFalse || customModulesListPassed
+		defaultModulesSetToFalse := modulesParams.Default != nil && !*modulesParams.Default                                                                 // 1 case
+		customModulesListPassed := modulesParams.Default == nil && modulesParams.List != nil                                                                // 2 & 3 case
+		defaultModulesWithChannel := modulesParams.Default != nil && *modulesParams.Default && modulesParams.Channel != nil && *modulesParams.Channel != "" // new case for default modules with channel
+
+		overrideModules := defaultModulesSetToFalse || customModulesListPassed || defaultModulesWithChannel
+
 		if overrideModules {
-			k.logger.Info("custom modules parameters are set, the content of list will replace current modules section. Default settings will be overriden.")
-			return k.handleModulesOverride(operation, *modulesParams)
+			if defaultModulesWithChannel {
+				k.logger.Info(fmt.Sprintf("Using default modules configuration with channel: %s", *modulesParams.Channel))
+				return k.handleDefaultModulesWithChannel(operation, *modulesParams)
+			} else {
+				k.logger.Info("custom modules parameters are set, the content of list will replace current modules section. Default settings will be overriden.")
+				return k.handleModulesOverride(operation, *modulesParams)
+			}
 		}
 	}
 
@@ -73,7 +81,7 @@ func (k *OverrideKymaModules) handleModulesOverride(operation internal.Operation
 		return k.operationManager.OperationFailed(operation, "while decoding Kyma template from previous step: ", fmt.Errorf("object is nil"), k.logger)
 	}
 
-	if err := k.replaceModulesSpec(decodeKymaTemplate, modulesParams.List); err != nil {
+	if err := k.replaceModulesSpec(operation, decodeKymaTemplate, modulesParams.List); err != nil {
 		k.logger.Error(fmt.Sprintf("unable to append modules to Kyma template: %s", err.Error()))
 		return k.operationManager.OperationFailed(operation, "unable to append modules to Kyma template:", err, k.logger)
 	}
@@ -90,8 +98,8 @@ func (k *OverrideKymaModules) handleModulesOverride(operation internal.Operation
 	}, k.logger)
 }
 
-func (k *OverrideKymaModules) replaceModulesSpec(kymaTemplate *unstructured.Unstructured, customModuleList []pkg.ModuleDTO) error {
-	toInsert := k.prepareModulesSection(customModuleList)
+func (k *OverrideKymaModules) replaceModulesSpec(operation internal.Operation, kymaTemplate *unstructured.Unstructured, customModuleList []pkg.ModuleDTO) error {
+	toInsert := k.prepareModulesSection(operation, customModuleList)
 	toInsertMarshaled, err := json.Marshal(toInsert)
 	if err != nil {
 		return err
@@ -108,7 +116,7 @@ func (k *OverrideKymaModules) replaceModulesSpec(kymaTemplate *unstructured.Unst
 	k.logger.Info("custom modules replaced in Kyma template successfully.")
 	return nil
 }
-func (k *OverrideKymaModules) prepareModulesSection(customModuleList []pkg.ModuleDTO) []pkg.ModuleDTO {
+func (k *OverrideKymaModules) prepareModulesSection(operation internal.Operation, customModuleList []pkg.ModuleDTO) []pkg.ModuleDTO {
 	// if field is "" convert it to nil to field will be not present in yaml
 	mapIfNeeded := func(field *string) *string {
 		if field != nil && *field == "" {
@@ -123,13 +131,85 @@ func (k *OverrideKymaModules) prepareModulesSection(customModuleList []pkg.Modul
 		return overridedModules
 	}
 
+	defaultChannel := operation.ProvisioningParameters.Parameters.Modules.Channel
+
 	for _, customModule := range customModuleList {
 		module := pkg.ModuleDTO{Name: customModule.Name}
+		if customModule.Channel != nil {
+			module.Channel = mapIfNeeded(customModule.Channel)
+		} else if defaultChannel != nil && *defaultChannel != "" {
+			module.Channel = defaultChannel
+		}
 		module.CustomResourcePolicy = mapIfNeeded(customModule.CustomResourcePolicy)
-		module.Channel = mapIfNeeded(customModule.Channel)
 		overridedModules = append(overridedModules, module)
 	}
 
 	k.logger.Info(fmt.Sprintf("not empty list with custom modules passed to KEB. Number of modules: %d", len(overridedModules)))
 	return overridedModules
+}
+
+func (k *OverrideKymaModules) handleDefaultModulesWithChannel(operation internal.Operation, modulesParams pkg.ModulesDTO) (internal.Operation, time.Duration, error) {
+	decodeKymaTemplate, err := steps.DecodeKymaTemplate(operation.KymaTemplate)
+	if err != nil {
+		k.logger.Error(fmt.Sprintf("while decoding Kyma template from previous step: %s", err.Error()))
+		return k.operationManager.OperationFailed(operation, "while decoding Kyma template from previous step", err, k.logger)
+	}
+	if decodeKymaTemplate == nil {
+		k.logger.Error("while decoding Kyma template from previous step: object is nil")
+		return k.operationManager.OperationFailed(operation, "while decoding Kyma template from previous step: ", fmt.Errorf("object is nil"), k.logger)
+	}
+
+	// Get existing modules from template and apply the default channel
+	if err := k.applyChannelToDefaultModules(operation, decodeKymaTemplate, *modulesParams.Channel); err != nil {
+		k.logger.Error(fmt.Sprintf("unable to apply channel to default modules: %s", err.Error()))
+		return k.operationManager.OperationFailed(operation, "unable to apply channel to default modules:", err, k.logger)
+	}
+
+	updatedKymaTemplate, err := steps.EncodeKymaTemplate(decodeKymaTemplate)
+	if err != nil {
+		k.logger.Error(fmt.Sprintf("unable to create yaml Kyma template with channel applied: %s", err.Error()))
+		return k.operationManager.OperationFailed(operation, "unable to create yaml Kyma template with channel applied", err, k.logger)
+	}
+
+	k.logger.Info("encoded Kyma template with default channel applied successfully")
+	return k.operationManager.UpdateOperation(operation, func(op *internal.Operation) {
+		op.KymaResourceNamespace = decodeKymaTemplate.GetNamespace()
+		op.KymaTemplate = updatedKymaTemplate
+	}, k.logger)
+}
+
+func (k *OverrideKymaModules) applyChannelToDefaultModules(operation internal.Operation, kymaTemplate *unstructured.Unstructured, channel string) error {
+	// Get existing modules from the template
+	modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+	if err != nil {
+		return fmt.Errorf("error getting modules from template: %w", err)
+	}
+	if !found {
+		k.logger.Info("no modules found in template, nothing to update")
+		return nil
+	}
+
+	// Apply channel to modules that don't already have one
+	updatedModules := make([]interface{}, 0, len(modules))
+	for _, moduleInterface := range modules {
+		module, ok := moduleInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Only set channel if it's not already set
+		if _, hasChannel := module["channel"]; !hasChannel {
+			module["channel"] = channel
+		}
+		updatedModules = append(updatedModules, module)
+	}
+
+	// Update the template with modified modules
+	err = unstructured.SetNestedSlice(kymaTemplate.Object, updatedModules, "spec", "modules")
+	if err != nil {
+		return fmt.Errorf("error setting updated modules in template: %w", err)
+	}
+
+	k.logger.Info(fmt.Sprintf("applied default channel '%s' to modules in template", channel))
+	return nil
 }
