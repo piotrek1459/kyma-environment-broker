@@ -273,8 +273,6 @@ func fixConfig() *Config {
 				MaxBindingsCount:     10,
 				CreateBindingTimeout: 15 * time.Second,
 			},
-			WorkerHealthCheckInterval:       10 * time.Minute,
-			WorkerHealthCheckWarnInterval:   10 * time.Minute,
 			GardenerSeedsCacheConfigMapName: "gardener-seeds-cache",
 			EnablePlanUpgrades:              true,
 		},
@@ -299,5 +297,7 @@ func fixConfig() *Config {
 		PlansConfigurationFilePath:          "testdata/plans.yaml",
 		RuntimeConfigurationConfigMapName:   "keb-runtime-config",
 		QuotaWhitelistedSubaccountsFilePath: "testdata/quota_whitelist.yaml",
+		SubscriptionGardenerResource:        "secretbinding",
+		MachinesAvailabilityEndpoint:        true,
 	}
 }

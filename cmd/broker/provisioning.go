@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/kyma-project/kyma-environment-broker/common/gardener"
@@ -32,6 +33,8 @@ func NewProvisioningProcessingQueue(ctx context.Context, provisionManager *proce
 	db storage.BrokerStorage, configProvider config.Provider,
 	k8sClientProvider provisioning.K8sClientProvider, k8sClient client.Client, gardenerClient *gardener.Client, defaultOIDC pkg.OIDCConfigDTO, logs *slog.Logger, rulesService *rules.RulesService,
 	workersProvider *workers.Provider, providerSpec *configuration.ProviderSpec, awsClientFactory aws.ClientFactory) *process.Queue {
+
+	useCredentialsBinding := strings.ToLower(cfg.SubscriptionGardenerResource) == "credentialsbinding"
 
 	provisionManager.DefineStages([]string{startStageName, createRuntimeStageName,
 		checkKymaStageName, createKymaResourceStageName})
@@ -70,11 +73,25 @@ func NewProvisioningProcessingQueue(ctx context.Context, provisionManager *proce
 			step: steps.NewHolderStep(cfg.HoldHapSteps,
 				provisioning.NewResolveSubscriptionSecretStep(db, gardenerClient, rulesService, internal.RetryTuple{Timeout: resolveSubscriptionSecretTimeout, Interval: resolveSubscriptionSecretRetryInterval})),
 			condition: provisioning.SkipForOwnClusterPlan,
+			disabled:  useCredentialsBinding,
+		},
+		{
+			stage: createRuntimeStageName,
+			step: steps.NewHolderStep(cfg.HoldHapSteps,
+				provisioning.NewResolveCredentialsBindingStep(db, gardenerClient, rulesService, internal.RetryTuple{Timeout: resolveSubscriptionSecretTimeout, Interval: resolveSubscriptionSecretRetryInterval})),
+			condition: provisioning.SkipForOwnClusterPlan,
+			disabled:  !useCredentialsBinding,
 		},
 		{
 			stage:     createRuntimeStageName,
 			step:      steps.NewDiscoverAvailableZonesStep(db, providerSpec, gardenerClient, awsClientFactory),
 			condition: provisioning.SkipForOwnClusterPlan,
+			disabled:  useCredentialsBinding,
+		},
+		{
+			stage:    createRuntimeStageName,
+			step:     steps.NewDiscoverAvailableZonesCBStep(db, providerSpec, gardenerClient, awsClientFactory),
+			disabled: !useCredentialsBinding,
 		},
 		{
 			stage: createRuntimeStageName,
@@ -118,7 +135,7 @@ func NewProvisioningProcessingQueue(ctx context.Context, provisionManager *proce
 		}
 	}
 
-	queue := process.NewQueue(provisionManager, logs, "provisioning", cfg.Broker.WorkerHealthCheckWarnInterval, cfg.Broker.WorkerHealthCheckInterval)
+	queue := process.NewQueue(provisionManager, logs, "provisioning")
 	queue.Run(ctx.Done(), workersAmount)
 
 	return queue
