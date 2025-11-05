@@ -179,6 +179,13 @@ func (k *OverrideKymaModules) handleDefaultModulesWithChannel(operation internal
 }
 
 func (k *OverrideKymaModules) applyChannelToDefaultModules(operation internal.Operation, kymaTemplate *unstructured.Unstructured, channel string) error {
+	// First, update the spec-level channel
+	err := unstructured.SetNestedField(kymaTemplate.Object, channel, "spec", "channel")
+	if err != nil {
+		return fmt.Errorf("error setting spec channel in template: %w", err)
+	}
+	k.logger.Info(fmt.Sprintf("applied spec-level channel '%s' to template", channel))
+
 	// Get existing modules from the template
 	modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
 	if err != nil {
