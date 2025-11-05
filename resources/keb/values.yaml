@@ -343,19 +343,22 @@ regionsSupportingMachine: |-
 
 # Defines the default KymaCR template.
 runtimeConfiguration: |-
-  default: |-
-    kyma-template: |-
-      apiVersion: operator.kyma-project.io/v1beta2
-      kind: Kyma
-      metadata:
-        labels:
-          "operator.kyma-project.io/managed-by": "lifecycle-manager"
-        name: tbd
-        namespace: kcp-system
-      spec:
-        channel: fast
-        modules: []
-    additional-components: []
+      default: |-
+      kyma-template: |-
+        apiVersion: operator.kyma-project.io/v1beta2
+        Kind: Kyma
+        metadata:
+          labels:
+            "operator.kyma-project.io/managed-by": "lifecycle-manager"
+          name: tbd
+          namespace: kcp-system
+        spec:
+          channel: fast
+          modules:
+          - name: api-gateway
+          - name: istio
+          - name: btp-operator
+      additional-components: []
 
 # Contains DNS provider configuration for Kyma clusters.
 skrDNSProvidersValues: |-
