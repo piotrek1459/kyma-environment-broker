@@ -331,23 +331,10 @@ regionsSupportingMachine: |-
 
 # Defines the default KymaCR template.
 runtimeConfiguration: |-
-  own_cluster: |-
-    kyma-template: |-
-      apiVersion: operator.kyma-project.io/v1beta2
-      Kind: Kyma
-      metadata:
-        labels:
-          "operator.kyma-project.io/managed-by": "lifecycle-manager"
-        name: tbd
-        namespace: kcp-system
-      spec:
-        channel: fast
-        modules: []
-    additional-components: []
   default: |-
     kyma-template: |-
       apiVersion: operator.kyma-project.io/v1beta2
-      Kind: Kyma
+      kind: Kyma
       metadata:
         labels:
           "operator.kyma-project.io/managed-by": "lifecycle-manager"
