@@ -55,10 +55,9 @@ type Config struct {
 	AdditionalPropertiesPath        string `envconfig:"default=/additional-properties"`
 	GardenerSeedsCacheConfigMapName string `envconfig:"default=gardener-seeds-cache"`
 
-	RejectUnsupportedParameters bool   `envconfig:"default=false"`
-	EnablePlanUpgrades          bool   `envconfig:"default=false"`
-	CheckQuotaLimit             bool   `envconfig:"default=false"`
-	DefaultModuleChannel        string `envconfig:"default=regular"`
+	RejectUnsupportedParameters bool `envconfig:"default=false"`
+	EnablePlanUpgrades          bool `envconfig:"default=false"`
+	CheckQuotaLimit             bool `envconfig:"default=false"`
 }
 
 type ServicesConfig map[string]Service
