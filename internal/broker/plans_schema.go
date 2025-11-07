@@ -443,7 +443,12 @@ func NewOIDCSchema(rejectUnsupportedParameters bool) *OIDCType {
 	return OIDCType
 }
 
-func NewModulesSchema(rejectUnsupportedParameters bool) *Modules {
+func NewModulesSchema(rejectUnsupportedParameters bool, defaultChannel ...string) *Modules {
+	// Determine environment-specific default channel
+	environmentDefaultChannel := "regular" // fallback default
+	if len(defaultChannel) > 0 && defaultChannel[0] != "" {
+		environmentDefaultChannel = defaultChannel[0]
+	}
 	modules := &Modules{
 		Type: Type{
 			Type:        "object",
@@ -468,7 +473,7 @@ func NewModulesSchema(rejectUnsupportedParameters bool) *Modules {
 							"regular": "Regular - default version",
 							"fast":    "Fast - latest version",
 						},
-						Default: "regular",
+						Default: environmentDefaultChannel,
 					},
 					Default: Type{
 						Type:        "boolean",
@@ -618,7 +623,7 @@ func IngressFilteringProperty() *Type {
 
 // NewProvisioningProperties creates a new properties for different plans
 // Note that the order of properties will be the same in the form on the website
-func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDisplay, regionsDisplay map[string]string, machineTypes, additionalMachineTypes, regions []string, update, rejectUnsupportedParameters bool) ProvisioningProperties {
+func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDisplay, regionsDisplay map[string]string, machineTypes, additionalMachineTypes, regions []string, update, rejectUnsupportedParameters bool, defaultChannel ...string) ProvisioningProperties {
 
 	properties := ProvisioningProperties{
 		UpdateProperties: UpdateProperties{
@@ -652,7 +657,7 @@ func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDispla
 			MinLength:       1,
 		},
 		Networking:           NewNetworkingSchema(rejectUnsupportedParameters),
-		Modules:              NewModulesSchema(rejectUnsupportedParameters),
+		Modules:              NewModulesSchema(rejectUnsupportedParameters, defaultChannel...),
 		ColocateControlPlane: ColocateControlPlaneProperty(),
 	}
 
