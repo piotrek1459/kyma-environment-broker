@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/kyma-project/kyma-environment-broker/common/runtime"
-
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +34,7 @@ aws:
             zones: ["a", "b", "c"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"})
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, newFakeProvider(), "test-config-map")
 
 	// When
 	err = svc.Validate()
@@ -64,7 +63,7 @@ aws:
             zones: ["a", "b"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"})
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, newFakeProvider(), "test-config-map")
 	require.NoError(t, err)
 
 	// When
@@ -94,7 +93,7 @@ gcp:
             zones: ["a", "b"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"})
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, newFakeProvider(), "test-config-map")
 	require.NoError(t, err)
 
 	// When

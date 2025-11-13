@@ -3674,7 +3674,7 @@ func newSchemaService(t *testing.T) *broker.SchemaService {
 
 	schemaService := broker.NewSchemaService(provider, plans, nil, broker.Config{},
 		broker.EnablePlans{broker.TrialPlanName, broker.AzurePlanName, broker.AzureLitePlanName, broker.AWSPlanName,
-			broker.GCPPlanName, broker.SapConvergedCloudPlanName, broker.FreemiumPlanName})
+			broker.GCPPlanName, broker.SapConvergedCloudPlanName, broker.FreemiumPlanName}, &fakeProvider{}, "test-config-map")
 	return schemaService
 }
 
