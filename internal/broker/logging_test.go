@@ -9,6 +9,7 @@ import (
 )
 
 func TestHideSensitiveDataFromContext(t *testing.T) {
+	// This test is just a way to show, how the hideSensitiveDataFromContext works
 	in := map[string]interface{}{
 		"password": "pa2345",
 		"username": "johnsmith",
