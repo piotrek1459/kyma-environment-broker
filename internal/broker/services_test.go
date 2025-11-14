@@ -12,6 +12,7 @@ import (
 
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/broker"
+	"github.com/kyma-project/kyma-environment-broker/internal/broker/testutil"
 	"github.com/kyma-project/kyma-environment-broker/internal/config"
 	"github.com/pivotal-cf/brokerapi/v12/domain"
 	"github.com/stretchr/testify/assert"
@@ -169,52 +170,9 @@ func createSchemaService(t *testing.T, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg
 	require.NoError(t, err)
 	plans, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 
-	service := broker.NewSchemaService(provider, plans, defaultOIDCConfig, cfg, ingressFilteringPlans, newFakeProvider(), "test-config-map")
+	service := broker.NewSchemaService(provider, plans, defaultOIDCConfig, cfg, ingressFilteringPlans, testutil.NewFakeConfigProvider(), "test-config-map")
 	require.NoError(t, err)
 	return service
-}
-
-// fakeProvider implements config.Provider for testing
-type fakeProvider struct{}
-
-func (f *fakeProvider) Provide(cfgSrcName, cfgKeyName, reqCfgKeys string, cfgDestObj any) error {
-	// Simulate realistic configuration data based on the request
-	// Note: cfgSrcName is the configMapName, cfgKeyName is the plan/config key
-	// GetChannelFromConfig calls configProvider.Provide("default", &cfg) which translates to
-	// provider.Provide(configMapName, "default", reqCfgKeys, &cfg)
-	if cfgKeyName == "default" {
-		// This is the structure expected by GetChannelFromConfig function
-		mockConfig := map[string]interface{}{
-			"kyma-template": `apiVersion: operator.kyma-project.io/v1beta2
-kind: Kyma
-metadata:
-  name: default
-spec:
-  channel: regular
-  modules:
-    - name: btp-operator
-      channel: regular
-    - name: keda
-      channel: fast
-`,
-		}
-
-		// Type assert to the expected destination type and populate it
-		if configMap, ok := cfgDestObj.(*map[string]interface{}); ok {
-			*configMap = mockConfig
-		}
-		return nil
-	}
-
-	// For other configuration requests, return empty but valid config
-	if configMap, ok := cfgDestObj.(*map[string]interface{}); ok {
-		*configMap = make(map[string]interface{})
-	}
-	return nil
-}
-
-func newFakeProvider() config.Provider {
-	return &fakeProvider{}
 }
 
 func assertBindableForPlan(t *testing.T, services []domain.Service, planName string) {
@@ -267,7 +225,7 @@ func configSource(t *testing.T, filename string) io.Reader {
 func TestFakeProvider_ChannelExtraction(t *testing.T) {
 	t.Run("should extract channel from fake provider configuration", func(t *testing.T) {
 		// given
-		provider := newFakeProvider()
+		provider := testutil.NewFakeConfigProvider()
 		configMapProvider := config.NewConfigMapConfigProvider(provider, "test-config-map", config.RuntimeConfigurationRequiredFields)
 
 		// when

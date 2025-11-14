@@ -804,16 +804,13 @@ func NewAdditionalWorkerNodePoolsSchema(machineTypesDisplay map[string]string, m
 }
 
 // GetChannelFromConfig reads the channel from the default Kyma template configuration
-// This function requires a config provider to access the environment-specific runtime configuration
 func GetChannelFromConfig(configProvider config.ConfigMapConfigProvider) (string, error) {
-	// Get the default configuration from the runtime configuration
 	cfg := make(map[string]interface{})
 	err := configProvider.Provide("default", &cfg)
 	if err != nil {
 		return "", fmt.Errorf("unable to provide default configuration: %w", err)
 	}
 
-	// Extract the kyma-template from the configuration
 	kymaTemplateRaw, exists := cfg["kyma-template"]
 	if !exists {
 		return "", fmt.Errorf("kyma-template not found in default configuration")
@@ -828,13 +825,11 @@ func GetChannelFromConfig(configProvider config.ConfigMapConfigProvider) (string
 		return "", fmt.Errorf("kyma-template is empty in default configuration")
 	}
 
-	// Decode the Kyma template
 	obj, err := decodeKymaTemplate(kymaTemplate)
 	if err != nil {
 		return "", fmt.Errorf("unable to decode kyma template: %w", err)
 	}
 
-	// Extract the channel from the template
 	channel, found, err := unstructured.NestedString(obj.Object, "spec", "channel")
 	if err != nil {
 		return "", fmt.Errorf("failed to read channel from kyma template: %w", err)
@@ -847,8 +842,6 @@ func GetChannelFromConfig(configProvider config.ConfigMapConfigProvider) (string
 	return channel, nil
 }
 
-// decodeKymaTemplate decodes a YAML Kyma template string into an unstructured object
-// This is a local copy of the steps.DecodeKymaTemplate to avoid circular imports
 func decodeKymaTemplate(kymaTemplate string) (*unstructured.Unstructured, error) {
 	tmpl := []byte(kymaTemplate)
 
