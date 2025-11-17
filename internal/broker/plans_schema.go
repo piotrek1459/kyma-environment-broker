@@ -469,25 +469,25 @@ func NewModulesSchema(rejectUnsupportedParameters bool, configProvider config.Pr
 					Description:          "Default modules",
 					AdditionalProperties: false,
 				},
-				ControlsOrder: []string{"channel", "default"},
+				ControlsOrder: []string{"default", "channel"},
 				Properties: ModulesDefaultProperties{
+					Default: Type{
+						Type:        "boolean",
+						Title:       "Use Default Modules",
+						Description: "Check the default modules in the <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/kyma-modules?version=Cloud>default modules table</a>.",
+						Default:     true,
+						ReadOnly:    true,
+					},
 					Channel: Type{
 						Type:        "string",
 						Title:       "Default Module Channel",
-						Description: "Specifies the default release channel for modules. This applies when 'Use Default' is selected.",
+						Description: "For the default modules, specifies your preferred default release channel: Regular or Fast. For details, see <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US&q=IPv#modules>Modules</a>.",
 						Enum:        ToInterfaceSlice([]string{"regular", "fast"}),
 						EnumDisplayName: map[string]string{
 							"regular": "Regular - default version",
 							"fast":    "Fast - latest version",
 						},
 						Default: defaultChannel,
-					},
-					Default: Type{
-						Type:        "boolean",
-						Title:       "Use Default",
-						Description: "Check the default modules in the <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/kyma-modules?version=Cloud>default modules table</a>.",
-						Default:     true,
-						ReadOnly:    true,
 					},
 				},
 			},
@@ -503,7 +503,7 @@ func NewModulesSchema(rejectUnsupportedParameters bool, configProvider config.Pr
 					Channel: Type{
 						Type:        "string",
 						Title:       "Default Module Channel",
-						Description: "Specifies the default release channel for any custom modules that do not specify their own channel.",
+						Description: "Specifies your preferred release channel, regular or fast, for all modules in your custom list. You can change this setting for individual modules if needed. For details, see <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US&q=IPv#modules>Modules</a>.",
 						Enum:        ToInterfaceSlice([]string{"regular", "fast"}),
 						EnumDisplayName: map[string]string{
 							"regular": "Regular - default version",
