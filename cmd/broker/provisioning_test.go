@@ -21,6 +21,7 @@ import (
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal"
 	"github.com/kyma-project/kyma-environment-broker/internal/broker"
+	"github.com/kyma-project/kyma-environment-broker/internal/process/steps"
 	"github.com/kyma-project/kyma-environment-broker/internal/ptr"
 )
 
@@ -2465,6 +2466,292 @@ func TestProvisioning_Modules(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
+}
+
+func TestProvisioning_ChannelAndModules(t *testing.T) {
+	t.Run("no parameters - uses default channel and modules from template", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1"
+					}
+				}`)
+		opID := suite.DecodeOperationID(resp)
+
+		suite.processKIMProvisioningByOperationID(opID)
+
+		suite.WaitForOperationState(opID, domain.Succeeded)
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		assert.NoError(t, err)
+
+		// Verify channel is 'stable' (from default template, no override)
+		kymaTemplate := unmarshalKymaTemplate(t, op.KymaTemplate)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel should be present in spec")
+		assert.Equal(t, "stable", channel)
+
+		// Verify modules from default template (btp-operator and keda)
+		modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+		require.NoError(t, err)
+		require.True(t, found, "modules should be present")
+		assert.Len(t, modules, 2)
+	})
+
+	t.Run("custom channel only - overrides channel, keeps default modules", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1",
+						"modules": {
+							"channel": "fast",
+							"default": true
+						}
+					}
+				}`)
+		opID := suite.DecodeOperationID(resp)
+
+		suite.processKIMProvisioningByOperationID(opID)
+
+		suite.WaitForOperationState(opID, domain.Succeeded)
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		assert.NoError(t, err)
+
+		// Verify channel is 'fast'
+		kymaTemplate := unmarshalKymaTemplate(t, op.KymaTemplate)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel should be present in spec")
+		assert.Equal(t, "fast", channel)
+
+		// Verify modules still present from default template
+		modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+		require.NoError(t, err)
+		require.True(t, found, "modules should be present")
+		assert.Len(t, modules, 2)
+	})
+
+	t.Run("custom module list only - keeps default channel, overrides modules", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1",
+						"modules": {
+							"list": [
+								{
+									"name": "btp-operator",
+									"channel": "fast"
+								}
+							]
+						}
+					}
+				}`)
+		opID := suite.DecodeOperationID(resp)
+
+		suite.processKIMProvisioningByOperationID(opID)
+
+		suite.WaitForOperationState(opID, domain.Succeeded)
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		assert.NoError(t, err)
+
+		// Verify channel is still 'stable' (default from template, no channel override)
+		kymaTemplate := unmarshalKymaTemplate(t, op.KymaTemplate)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel should be present in spec")
+		assert.Equal(t, "stable", channel)
+
+		// Verify only btp-operator module is present
+		modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+		require.NoError(t, err)
+		require.True(t, found, "modules should be present")
+		assert.Len(t, modules, 1)
+		module := modules[0].(map[string]interface{})
+		assert.Equal(t, "btp-operator", module["name"])
+	})
+
+	t.Run("custom channel and custom module list - both overridden", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1",
+						"modules": {
+							"channel": "fast",
+							"list": [
+								{
+									"name": "keda",
+									"channel": "regular"
+								}
+							]
+						}
+					}
+				}`)
+		opID := suite.DecodeOperationID(resp)
+
+		suite.processKIMProvisioningByOperationID(opID)
+
+		suite.WaitForOperationState(opID, domain.Succeeded)
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		assert.NoError(t, err)
+
+		// Verify channel is 'fast'
+		kymaTemplate := unmarshalKymaTemplate(t, op.KymaTemplate)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel should be present in spec")
+		assert.Equal(t, "fast", channel)
+
+		// Verify only keda module is present
+		modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+		require.NoError(t, err)
+		require.True(t, found, "modules should be present")
+		assert.Len(t, modules, 1)
+		module := modules[0].(map[string]interface{})
+		assert.Equal(t, "keda", module["name"])
+	})
+
+	t.Run("empty module list with custom channel - channel set, no modules", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1",
+						"modules": {
+							"channel": "fast",
+							"list": []
+						}
+					}
+				}`)
+		opID := suite.DecodeOperationID(resp)
+
+		suite.processKIMProvisioningByOperationID(opID)
+
+		suite.WaitForOperationState(opID, domain.Succeeded)
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		assert.NoError(t, err)
+
+		// Verify channel is 'fast'
+		kymaTemplate := unmarshalKymaTemplate(t, op.KymaTemplate)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel should be present in spec")
+		assert.Equal(t, "fast", channel)
+
+		// Verify empty modules array (explicitly provided empty list means no modules)
+		modules, found, err := unstructured.NestedSlice(kymaTemplate.Object, "spec", "modules")
+		require.NoError(t, err)
+		require.True(t, found, "modules field should be present when empty list explicitly provided")
+		assert.Empty(t, modules, "modules should be an empty array when empty list provided")
+	})
+
+	t.Run("invalid channel with valid module list - should fail validation", func(t *testing.T) {
+		// given
+		suite := NewBrokerSuiteTest(t)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+							"globalaccount_id": "whitelisted-global-account-id",
+							"subaccount_id": "sub-id",
+							"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "test",
+						"region": "eu-central-1",
+						"modules": {
+							"channel": "invalid-channel",
+							"list": [
+								{
+									"name": "btp-operator"
+								}
+							]
+						}
+					}
+				}`)
+
+		// Verify request is rejected
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
+}
+
+func unmarshalKymaTemplate(t *testing.T, template string) *unstructured.Unstructured {
+	kyma, err := steps.DecodeKymaTemplate(template)
+	require.NoError(t, err)
+	return kyma
 }
 
 func TestProvisioningWithAdditionalWorkerNodePools(t *testing.T) {
