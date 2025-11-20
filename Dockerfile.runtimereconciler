@@ -13,7 +13,7 @@ COPY internal internal
 ARG TARGETOS TARGETARCH
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=0 GODEBUG=fips140=on GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /bin/runtime-reconciler cmd/runtimereconciler/main.go
+    CGO_ENABLED=0 GOFIPS140=v1.0.0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /bin/runtime-reconciler cmd/runtimereconciler/main.go
 
 # Final image
 FROM scratch

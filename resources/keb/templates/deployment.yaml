@@ -89,6 +89,8 @@ spec:
               value: "{{ .Values.quotaLimitCheck.enabled }}"
             - name: APP_BROKER_DEFAULT_REQUEST_REGION
               value: "{{ .Values.broker.defaultRequestRegion }}"
+            - name: APP_BROKER_DUAL_STACK_DOCS_URL
+              value: "{{ .Values.broker.dualStackDocsURL }}"
             - name: APP_BROKER_ENABLE_PLANS
               value: "{{ .Values.broker.enablePlans }}"
             - name: APP_BROKER_ENABLE_PLAN_UPGRADES
@@ -123,6 +125,8 @@ spec:
               value: {{ .Values.host }}.{{ .Values.global.ingress.domainName }}
             - name: APP_CATALOG_FILE_PATH
               value: {{ .Values.configPaths.catalog }}
+            - name: APP_CLUSTER_NAME_IN_KUBECONFIG
+              value: "{{ .Values.clusterNameInKubeconfig }}"
             - name: APP_DATABASE_HOST
               valueFrom:
                 secretKeyRef:
@@ -156,8 +160,6 @@ spec:
                   key: {{ .Values.global.database.managedGCP.sslModeSecretKey }}
             - name: APP_DATABASE_SSLROOTCERT
               value: {{ .Values.configPaths.cloudsqlSSLRootCert }}
-            - name: APP_DATABASE_TIMEZONE
-              value: "{{ .Values.global.database.timezone }}"
             - name: APP_DATABASE_USER
               valueFrom:
                 secretKeyRef:

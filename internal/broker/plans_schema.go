@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	k8syamlutil "k8s.io/apimachinery/pkg/util/yaml"
+	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 )
 
 const (
@@ -61,9 +62,10 @@ type UpdateProperties struct {
 }
 
 type NetworkingProperties struct {
-	Nodes    Type `json:"nodes"`
-	Services Type `json:"services"`
-	Pods     Type `json:"pods"`
+	Nodes     Type  `json:"nodes"`
+	Services  Type  `json:"services"`
+	Pods      Type  `json:"pods"`
+	DualStack *Type `json:"dualStack,omitempty"`
 }
 
 type NetworkingType struct {
@@ -636,7 +638,8 @@ func IngressFilteringProperty() *Type {
 
 // NewProvisioningProperties creates a new properties for different plans
 // Note that the order of properties will be the same in the form on the website
-func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDisplay, regionsDisplay map[string]string, machineTypes, additionalMachineTypes, regions []string, update, rejectUnsupportedParameters bool, configProvider config.Provider, runtimeConfigMapName string) ProvisioningProperties {
+
+func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDisplay, regionsDisplay map[string]string, machineTypes, additionalMachineTypes, regions []string, update, rejectUnsupportedParameters bool, providerSpec *configuration.ProviderSpec, cloudProvider pkg.CloudProvider, dualStackDocsURL string, configProvider config.Provider, runtimeConfigMapName string) ProvisioningProperties {
 
 	properties := ProvisioningProperties{
 		UpdateProperties: UpdateProperties{
@@ -669,7 +672,7 @@ func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDispla
 			EnumDisplayName: regionsDisplay,
 			MinLength:       1,
 		},
-		Networking:           NewNetworkingSchema(rejectUnsupportedParameters),
+		Networking:           NewNetworkingSchema(rejectUnsupportedParameters, providerSpec, cloudProvider, dualStackDocsURL),
 		Modules:              NewModulesSchema(rejectUnsupportedParameters, configProvider, runtimeConfigMapName),
 		ColocateControlPlane: ColocateControlPlaneProperty(),
 	}
@@ -682,19 +685,29 @@ func NewProvisioningProperties(machineTypesDisplay, additionalMachineTypesDispla
 	return properties
 }
 
-func NewNetworkingSchema(rejectUnsupportedParameters bool) *NetworkingType {
+func NewNetworkingSchema(rejectUnsupportedParameters bool, providerSpec *configuration.ProviderSpec, cloudProvider pkg.CloudProvider, dualStackDocsURL string) *NetworkingType {
 	seedCIDRs := strings.Join(networking.GardenerSeedCIDRs, ", ")
+	networkingProperties := NetworkingProperties{
+		Services: Type{Type: "string", Title: "CIDR range for Services", Description: fmt.Sprintf("CIDR range for Services, must not overlap with the following CIDRs: %s", seedCIDRs),
+			Default: networking.DefaultServicesCIDR},
+		Pods: Type{Type: "string", Title: "CIDR range for Pods", Description: fmt.Sprintf("CIDR range for Pods, must not overlap with the following CIDRs: %s", seedCIDRs),
+			Default: networking.DefaultPodsCIDR},
+		Nodes: Type{Type: "string", Title: "CIDR range for Nodes", Description: fmt.Sprintf("CIDR range for Nodes, must not overlap with the following CIDRs: %s", seedCIDRs),
+			Default: networking.DefaultNodesCIDR},
+	}
+
+	if providerSpec != nil && providerSpec.IsDualStackSupported(cloudProvider) {
+		description := "Enable dual-stack networking (IPv4 and IPv6). The Kyma Istio module does not support dual-stack mode."
+		if dualStackDocsURL != "" {
+			description += fmt.Sprintf(" For more information, see <a href=%s>documentation</a>.", dualStackDocsURL)
+		}
+		networkingProperties.DualStack = &Type{Type: "boolean", Title: "Enable dual stack (Istio module doesn't support dual stack)", Description: description}
+	}
+
 	networkingType := &NetworkingType{
-		Type: Type{Type: "object", Description: "Networking configuration. These values are immutable and cannot be updated later. All provided CIDR ranges must not overlap one another."},
-		Properties: NetworkingProperties{
-			Services: Type{Type: "string", Title: "CIDR range for Services", Description: fmt.Sprintf("CIDR range for Services, must not overlap with the following CIDRs: %s", seedCIDRs),
-				Default: networking.DefaultServicesCIDR},
-			Pods: Type{Type: "string", Title: "CIDR range for Pods", Description: fmt.Sprintf("CIDR range for Pods, must not overlap with the following CIDRs: %s", seedCIDRs),
-				Default: networking.DefaultPodsCIDR},
-			Nodes: Type{Type: "string", Title: "CIDR range for Nodes", Description: fmt.Sprintf("CIDR range for Nodes, must not overlap with the following CIDRs: %s", seedCIDRs),
-				Default: networking.DefaultNodesCIDR},
-		},
-		Required: []string{"nodes"},
+		Type:       Type{Type: "object", Description: "Networking configuration. These values are immutable and cannot be updated later. All provided CIDR ranges must not overlap one another."},
+		Properties: networkingProperties,
+		Required:   []string{"nodes"},
 	}
 	if rejectUnsupportedParameters {
 		networkingType.Type.AdditionalProperties = false
