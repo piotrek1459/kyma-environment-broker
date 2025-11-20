@@ -6,6 +6,7 @@ import (
 
 	"github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/broker/testutil"
+	"github.com/kyma-project/kyma-environment-broker/internal/config"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +36,9 @@ aws:
             zones: ["a", "b", "c"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, testutil.NewFakeConfigProvider(), "test-config-map")
+	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
+	defaultChannel, _ := GetChannelFromConfig(configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, defaultChannel)
 
 	// When
 	err = svc.Validate()
@@ -64,7 +67,10 @@ aws:
             zones: ["a", "b"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, testutil.NewFakeConfigProvider(), "test-config-map")
+
+	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
+	defaultChannel, _ := GetChannelFromConfig(configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, defaultChannel)
 	require.NoError(t, err)
 
 	// When
@@ -94,7 +100,10 @@ gcp:
             zones: ["a", "b"]
 `))
 	require.NoError(t, err)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, testutil.NewFakeConfigProvider(), "test-config-map")
+
+	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
+	defaultChannel, _ := GetChannelFromConfig(configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws"}, defaultChannel)
 	require.NoError(t, err)
 
 	// When

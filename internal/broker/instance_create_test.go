@@ -3766,9 +3766,15 @@ func newSchemaService(t *testing.T) *broker.SchemaService {
 	plans := newPlanSpec(t)
 	provider := newProviderSpec(t)
 
+	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
+	defaultChannel, err := broker.GetChannelFromConfig(configProvider)
+	if err != nil {
+		defaultChannel = "regular"
+	}
+
 	schemaService := broker.NewSchemaService(provider, plans, nil, broker.Config{},
 		broker.EnablePlans{broker.TrialPlanName, broker.AzurePlanName, broker.AzureLitePlanName, broker.AWSPlanName,
-			broker.GCPPlanName, broker.SapConvergedCloudPlanName, broker.FreemiumPlanName}, testutil.NewFakeConfigProvider(), "test-config-map")
+			broker.GCPPlanName, broker.SapConvergedCloudPlanName, broker.FreemiumPlanName}, defaultChannel)
 	return schemaService
 }
 
