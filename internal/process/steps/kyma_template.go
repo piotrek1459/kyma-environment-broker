@@ -75,24 +75,12 @@ func (s *InitKymaTemplate) applyChannelToTemplate(operation internal.Operation, 
 		return "", fmt.Errorf("invalid channel '%s': only 'regular' and 'fast' are allowed", userChannel)
 	}
 
-	currentChannel, found, err := unstructured.NestedString(obj.Object, "spec", "channel")
+	err := unstructured.SetNestedField(obj.Object, userChannel, "spec", "channel")
 	if err != nil {
-		return "", fmt.Errorf("failed to read current template channel: %w", err)
+		return "", fmt.Errorf("failed to set channel in template: %w", err)
 	}
 
-	if found && currentChannel == userChannel {
-		logger.Info(fmt.Sprintf("template channel '%s' matches user channel, no change needed", currentChannel))
-	} else {
-		err = unstructured.SetNestedField(obj.Object, userChannel, "spec", "channel")
-		if err != nil {
-			return "", fmt.Errorf("failed to set channel in template: %w", err)
-		}
-		if found {
-			logger.Info(fmt.Sprintf("applied user channel '%s' to template (was '%s')", userChannel, currentChannel))
-		} else {
-			logger.Info(fmt.Sprintf("applied user channel '%s' to template (no previous channel)", userChannel))
-		}
-	}
+	logger.Info(fmt.Sprintf("applied user channel '%s' to template", userChannel))
 
 	return EncodeKymaTemplate(obj)
 }
