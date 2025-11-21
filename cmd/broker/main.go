@@ -336,14 +336,15 @@ func main() {
 	fatalOnError(err, log)
 	fatalOnError(providerSpec.ValidateZonesDiscovery(), log)
 
-	defaultChannel, err := broker.GetChannelFromConfig(kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields))
+	runtimeConfigProvider := kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields)
+	defaultChannel, err := broker.GetChannelFromPlanConfig(runtimeConfigProvider, broker.DefaultPlanName)
 	if err != nil {
 		log.Info(fmt.Sprintf("Unable to get channel from configuration: %s, falling back to 'regular'", err.Error()))
 		defaultChannel = "regular"
 	}
 	log.Info(fmt.Sprintf("Default channel from configuration: %s", defaultChannel))
 
-	schemaService := broker.NewSchemaService(providerSpec, plansSpec, &oidcDefaultValues, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel)
+	schemaService := broker.NewSchemaService(providerSpec, plansSpec, &oidcDefaultValues, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel, runtimeConfigProvider)
 	fatalOnError(schemaService.Validate(), log)
 	log.Info("Plans and providers configuration is valid")
 	workersProvider := workers.NewProvider(cfg.InfrastructureManager, providerSpec)

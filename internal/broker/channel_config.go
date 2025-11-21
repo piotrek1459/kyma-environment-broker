@@ -11,26 +11,19 @@ import (
 	k8syamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// GetChannelFromConfig reads the channel from the default Kyma template configuration
-func GetChannelFromConfig(configProvider config.ConfigMapConfigProvider) (string, error) {
-	cfg := make(map[string]interface{})
-	err := configProvider.Provide("default", &cfg)
+// DefaultPlanName is the default plan name used for schema generation and fallback configuration
+const DefaultPlanName = "default"
+
+// GetChannelFromConfig reads the channel from the Kyma template configuration.
+// The configFetcher function should return the kyma-template string from the appropriate plan configuration.
+func GetChannelFromConfig(configFetcher func() (string, error)) (string, error) {
+	kymaTemplate, err := configFetcher()
 	if err != nil {
-		return "", fmt.Errorf("unable to provide default configuration: %w", err)
-	}
-
-	kymaTemplateRaw, exists := cfg["kyma-template"]
-	if !exists {
-		return "", fmt.Errorf("kyma-template not found in default configuration")
-	}
-
-	kymaTemplate, ok := kymaTemplateRaw.(string)
-	if !ok {
-		return "", fmt.Errorf("kyma-template is not a string in default configuration")
+		return "", fmt.Errorf("unable to fetch kyma template: %w", err)
 	}
 
 	if kymaTemplate == "" {
-		return "", fmt.Errorf("kyma-template is empty in default configuration")
+		return "", fmt.Errorf("kyma-template is empty")
 	}
 
 	obj, err := decodeKymaTemplate(kymaTemplate)
@@ -48,6 +41,36 @@ func GetChannelFromConfig(configProvider config.ConfigMapConfigProvider) (string
 	}
 
 	return channel, nil
+}
+
+// GetChannelFromPlanConfig is a helper function that fetches the channel from a specific plan configuration.
+// If the plan configuration is not found, it falls back to "default".
+func GetChannelFromPlanConfig(configProvider config.ConfigMapConfigProvider, planName string) (string, error) {
+	configFetcher := func() (string, error) {
+		cfg := make(map[string]interface{})
+		err := configProvider.Provide(planName, &cfg)
+		if err != nil {
+			// If plan-specific config doesn't exist, try default
+			err = configProvider.Provide("default", &cfg)
+			if err != nil {
+				return "", fmt.Errorf("unable to provide configuration for plan %s or default: %w", planName, err)
+			}
+		}
+
+		kymaTemplateRaw, exists := cfg["kyma-template"]
+		if !exists {
+			return "", fmt.Errorf("kyma-template not found in configuration")
+		}
+
+		kymaTemplate, ok := kymaTemplateRaw.(string)
+		if !ok {
+			return "", fmt.Errorf("kyma-template is not a string")
+		}
+
+		return kymaTemplate, nil
+	}
+
+	return GetChannelFromConfig(configFetcher)
 }
 
 func decodeKymaTemplate(kymaTemplate string) (*unstructured.Unstructured, error) {

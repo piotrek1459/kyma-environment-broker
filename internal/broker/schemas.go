@@ -2,6 +2,7 @@ package broker
 
 import (
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
+	"github.com/kyma-project/kyma-environment-broker/internal/config"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"github.com/pivotal-cf/brokerapi/v12/domain"
 )
@@ -11,13 +12,17 @@ type SchemaService struct {
 	providerSpec      *configuration.ProviderSpec
 	defaultOIDCConfig *pkg.OIDCConfigDTO
 	defaultChannel    string
+	planChannels      map[string]string
 
 	ingressFilteringPlans EnablePlans
 
 	cfg Config
 }
 
-func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *configuration.PlanSpecifications, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg Config, ingressFilteringPlans EnablePlans, defaultChannel string) *SchemaService {
+func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *configuration.PlanSpecifications, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg Config, ingressFilteringPlans EnablePlans, defaultChannel string, configProvider config.ConfigMapConfigProvider) *SchemaService {
+	// Pre-compute channels for all known plans at initialization
+	planChannels := computePlanChannels(configProvider, defaultChannel)
+
 	return &SchemaService{
 		planSpec:              planSpec,
 		providerSpec:          providerSpec,
@@ -25,7 +30,50 @@ func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *config
 		cfg:                   cfg,
 		ingressFilteringPlans: ingressFilteringPlans,
 		defaultChannel:        defaultChannel,
+		planChannels:          planChannels,
 	}
+}
+
+// computePlanChannels pre-computes channel values for all known plans at startup
+func computePlanChannels(configProvider config.ConfigMapConfigProvider, fallbackChannel string) map[string]string {
+	planChannels := make(map[string]string)
+
+	// List of all plan names to check
+	planNames := []string{
+		AWSPlanName,
+		AzurePlanName,
+		GCPPlanName,
+		AzureLitePlanName,
+		FreemiumPlanName,
+		TrialPlanName,
+		OwnClusterPlanName,
+		PreviewPlanName,
+		BuildRuntimeAWSPlanName,
+		BuildRuntimeGCPPlanName,
+		BuildRuntimeAzurePlanName,
+		SapConvergedCloudPlanName,
+		AlicloudPlanName,
+	}
+
+	for _, planName := range planNames {
+		channel, err := GetChannelFromPlanConfig(configProvider, planName)
+		if err != nil {
+			// If plan-specific config doesn't exist or has errors, use fallback
+			channel = fallbackChannel
+		}
+		planChannels[planName] = channel
+	}
+
+	return planChannels
+}
+
+// getChannelForPlan returns the channel for a specific plan with fallback to default
+func (s *SchemaService) getChannelForPlan(planName string) string {
+	if channel, exists := s.planChannels[planName]; exists {
+		return channel
+	}
+	// Ultimate fallback if plan not in pre-computed map
+	return s.defaultChannel
 }
 
 func (s *SchemaService) Validate() error {
@@ -139,6 +187,9 @@ func (s *SchemaService) planSchemas(cp pkg.CloudProvider, planName, platformRegi
 	regularAndAdditionalMachines := append(machines, s.planSpec.AdditionalMachines(planName)...)
 	flags := s.createFlags(planName)
 
+	// Get plan-specific channel
+	planChannel := s.getChannelForPlan(planName)
+
 	createProperties := NewProvisioningProperties(
 		s.providerSpec.MachineDisplayNames(cp, machines),
 		s.providerSpec.MachineDisplayNames(cp, regularAndAdditionalMachines),
@@ -151,7 +202,7 @@ func (s *SchemaService) planSchemas(cp pkg.CloudProvider, planName, platformRegi
 		s.providerSpec,
 		cp,
 		s.cfg.DualStackDocsURL,
-		s.defaultChannel,
+		planChannel,
 	)
 	updateProperties := NewProvisioningProperties(
 		s.providerSpec.MachineDisplayNames(cp, machines),
@@ -165,7 +216,7 @@ func (s *SchemaService) planSchemas(cp pkg.CloudProvider, planName, platformRegi
 		s.providerSpec,
 		cp,
 		s.cfg.DualStackDocsURL,
-		s.defaultChannel,
+		planChannel,
 	)
 	return createSchemaWithProperties(createProperties, s.defaultOIDCConfig, false, requiredSchemaProperties(), flags),
 		createSchemaWithProperties(updateProperties, s.defaultOIDCConfig, true, requiredSchemaProperties(), flags), true
@@ -212,6 +263,9 @@ func (s *SchemaService) AzureLiteSchema(platformRegion string, regions []string,
 	machines := s.planSpec.RegularMachines(AzureLitePlanName)
 	displayNames := s.providerSpec.MachineDisplayNames(pkg.Azure, machines)
 
+	// Get plan-specific channel
+	planChannel := s.getChannelForPlan(AzureLitePlanName)
+
 	properties := NewProvisioningProperties(
 		displayNames,
 		displayNames,
@@ -224,7 +278,7 @@ func (s *SchemaService) AzureLiteSchema(platformRegion string, regions []string,
 		s.providerSpec,
 		pkg.Azure,
 		s.cfg.DualStackDocsURL,
-		s.defaultChannel,
+		planChannel,
 	)
 	properties.AutoScalerMax.Minimum = 2
 	properties.AutoScalerMax.Maximum = 40
@@ -284,7 +338,9 @@ func (s *SchemaService) FreeSchema(provider pkg.CloudProvider, platformRegion st
 	}
 	if !update {
 		properties.Networking = NewNetworkingSchema(flags.rejectUnsupportedParameters, s.providerSpec, provider, s.cfg.DualStackDocsURL)
-		properties.Modules = NewModulesSchema(flags.rejectUnsupportedParameters, s.defaultChannel)
+		// Get plan-specific channel
+		planChannel := s.getChannelForPlan(FreemiumPlanName)
+		properties.Modules = NewModulesSchema(flags.rejectUnsupportedParameters, planChannel)
 	}
 
 	return createSchemaWithProperties(properties, s.defaultOIDCConfig, update, requiredSchemaProperties(), flags)
@@ -306,7 +362,9 @@ func (s *SchemaService) TrialSchema(update bool) *map[string]interface{} {
 	}
 
 	if !update {
-		properties.Modules = NewModulesSchema(flags.rejectUnsupportedParameters, s.defaultChannel)
+		// Get plan-specific channel
+		planChannel := s.getChannelForPlan(TrialPlanName)
+		properties.Modules = NewModulesSchema(flags.rejectUnsupportedParameters, planChannel)
 	}
 
 	return createSchemaWithProperties(properties, s.defaultOIDCConfig, update, requiredTrialSchemaProperties(), flags)
@@ -325,7 +383,9 @@ func (s *SchemaService) OwnClusterSchema(update bool) *map[string]interface{} {
 	if update {
 		return createSchemaWith(properties.UpdateProperties, []string{}, s.cfg.RejectUnsupportedParameters)
 	} else {
-		properties.Modules = NewModulesSchema(s.cfg.RejectUnsupportedParameters, s.defaultChannel)
+		// Get plan-specific channel
+		planChannel := s.getChannelForPlan(OwnClusterPlanName)
+		properties.Modules = NewModulesSchema(s.cfg.RejectUnsupportedParameters, planChannel)
 		return createSchemaWith(properties, requiredOwnClusterSchemaProperties(), s.cfg.RejectUnsupportedParameters)
 	}
 }

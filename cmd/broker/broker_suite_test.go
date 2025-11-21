@@ -202,14 +202,15 @@ func NewBrokerSuiteTestWithConfig(t *testing.T, cfg *Config, version ...string) 
 	plansSpec, err := configuration.NewPlanSpecificationsFromFile(cfg.PlansConfigurationFilePath)
 	fatalOnError(err, log)
 
-	defaultChannel, err := broker.GetChannelFromConfig(kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields))
+	runtimeConfigProvider := kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields)
+	defaultChannel, err := broker.GetChannelFromPlanConfig(runtimeConfigProvider, broker.DefaultPlanName)
 	if err != nil {
 		log.Info(fmt.Sprintf("Unable to get channel from configuration: %s, falling back to 'regular'", err.Error()))
 		defaultChannel = "regular"
 	}
 
 	defaultOIDC := defaultOIDCValues()
-	schemaService := broker.NewSchemaService(providerSpec, plansSpec, &defaultOIDC, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel)
+	schemaService := broker.NewSchemaService(providerSpec, plansSpec, &defaultOIDC, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel, runtimeConfigProvider)
 	fatalOnError(err, log)
 
 	fakeK8sSKRClient := fake.NewClientBuilder().WithScheme(sch).Build()
@@ -459,14 +460,15 @@ func (s *BrokerSuiteTest) CreateAPI(cfg *Config, db storage.BrokerStorage, provi
 	providerSpec, err := configuration.NewProviderSpecFromFile(cfg.ProvidersConfigurationFilePath)
 	fatalOnError(err, log)
 
-	defaultChannel, err := broker.GetChannelFromConfig(kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields))
+	runtimeConfigProvider := kebConfig.NewConfigMapConfigProvider(configProvider, cfg.RuntimeConfigurationConfigMapName, kebConfig.RuntimeConfigurationRequiredFields)
+	defaultChannel, err := broker.GetChannelFromPlanConfig(runtimeConfigProvider, broker.DefaultPlanName)
 	if err != nil {
 		log.Info(fmt.Sprintf("Unable to get channel from configuration: %s, falling back to 'regular'", err.Error()))
 		defaultChannel = "regular"
 	}
 
 	defaultOIDC := defaultOIDCValues()
-	schemaService := broker.NewSchemaService(providerSpec, planSpec, &defaultOIDC, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel)
+	schemaService := broker.NewSchemaService(providerSpec, planSpec, &defaultOIDC, cfg.Broker, cfg.InfrastructureManager.IngressFilteringPlans, defaultChannel, runtimeConfigProvider)
 
 	createAPI(s.router, schemaService, servicesConfig, cfg, db, provisioningQueue, deprovisionQueue, updateQueue,
 		lager.NewLogger("api"), log, kcBuilder, skrK8sClientProvider, skrK8sClientProvider, fakeKcpK8sClient, eventBroker, defaultOIDCValues(),
