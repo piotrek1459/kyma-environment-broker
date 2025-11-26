@@ -37,8 +37,7 @@ aws:
 `))
 	require.NoError(t, err)
 	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, _ := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws", "trial"}, defaultChannel, configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"aws", "trial"}, configProvider)
 
 	// When
 	err = svc.Validate()
@@ -69,8 +68,7 @@ aws:
 	require.NoError(t, err)
 
 	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, _ := GetChannelFromPlanConfig(configProvider, "default")
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"gcp"}, defaultChannel, configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"gcp"}, configProvider)
 	require.NoError(t, err)
 
 	// When
@@ -102,8 +100,7 @@ gcp:
 	require.NoError(t, err)
 
 	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, _ := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"azure"}, defaultChannel, configProvider)
+	svc := NewSchemaService(providers, plans, nil, Config{}, EnablePlans{"azure"}, configProvider)
 	require.NoError(t, err)
 
 	// When

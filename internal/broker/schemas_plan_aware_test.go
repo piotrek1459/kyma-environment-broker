@@ -45,9 +45,6 @@ spec:
 	})
 
 	configProvider := config.NewConfigMapConfigProvider(fakeProvider, "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, err := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	require.NoError(t, err)
-	assert.Equal(t, "regular", defaultChannel)
 
 	plans, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 	require.NoError(t, err)
@@ -57,7 +54,7 @@ spec:
 	schemaService := NewSchemaService(provider, plans, nil, Config{
 		RejectUnsupportedParameters: true,
 		DualStackDocsURL:            "https://placeholder.com",
-	}, EnablePlans{AWSPlanName, AzurePlanName, GCPPlanName}, defaultChannel, configProvider)
+	}, EnablePlans{AWSPlanName, AzurePlanName, GCPPlanName}, configProvider)
 
 	// When: Generate schemas for different plans
 	awsCreateSchema, _, _ := schemaService.AWSSchemas("cf-eu11")
@@ -89,8 +86,6 @@ spec:
 	})
 
 	configProvider := config.NewConfigMapConfigProvider(fakeProvider, "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, err := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	require.NoError(t, err)
 
 	plans, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 	require.NoError(t, err)
@@ -100,7 +95,7 @@ spec:
 	schemaService := NewSchemaService(provider, plans, nil, Config{
 		RejectUnsupportedParameters: true,
 		DualStackDocsURL:            "https://placeholder.com",
-	}, EnablePlans{AWSPlanName, AzurePlanName, GCPPlanName}, defaultChannel, configProvider)
+	}, EnablePlans{AWSPlanName, AzurePlanName, GCPPlanName}, configProvider)
 
 	// When: Generate schemas for plans without specific config
 	awsCreateSchema, _, _ := schemaService.AWSSchemas("cf-eu11")
@@ -159,8 +154,6 @@ spec:
 	})
 
 	configProvider := config.NewConfigMapConfigProvider(fakeProvider, "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, err := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	require.NoError(t, err)
 
 	plans, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 	require.NoError(t, err)
@@ -170,7 +163,7 @@ spec:
 	schemaService := NewSchemaService(provider, plans, nil, Config{
 		RejectUnsupportedParameters: true,
 		DualStackDocsURL:            "https://placeholder.com",
-	}, EnablePlans{TrialPlanName, FreemiumPlanName, OwnClusterPlanName, AzureLitePlanName}, defaultChannel, configProvider)
+	}, EnablePlans{TrialPlanName, FreemiumPlanName, OwnClusterPlanName, AzureLitePlanName}, configProvider)
 
 	// When: Generate schemas for special plans
 	trialSchema := schemaService.TrialSchema(false)
@@ -222,7 +215,7 @@ spec:
 	configProvider := config.NewConfigMapConfigProvider(fakeProvider, "test-config-map", config.RuntimeConfigurationRequiredFields)
 
 	// When: Compute plan channels
-	planChannels := computePlanChannels(configProvider, "regular")
+	planChannels := computePlanChannels(configProvider)
 
 	// Then: Verify computed channels
 	assert.Equal(t, "fast", planChannels[AWSPlanName], "AWS should have 'fast' channel")
@@ -269,12 +262,12 @@ spec:
 	provider, err := configuration.NewProviderSpecFromFile("testdata/providers.yaml")
 	require.NoError(t, err)
 
-	schemaService := NewSchemaService(provider, plans, nil, Config{}, EnablePlans{}, "regular", configProvider)
+	schemaService := NewSchemaService(provider, plans, nil, Config{}, EnablePlans{}, configProvider)
 
 	// When & Then: Test getChannelForPlan method
 	assert.Equal(t, "fast", schemaService.getChannelForPlan(AWSPlanName), "AWS plan should return 'fast'")
 	assert.Equal(t, "regular", schemaService.getChannelForPlan(GCPPlanName), "GCP plan should fallback to 'regular'")
-	assert.Equal(t, "regular", schemaService.getChannelForPlan("non-existent-plan"), "Unknown plan should fallback to default")
+	assert.Equal(t, "regular", schemaService.getChannelForPlan("non-existent-plan"), "Unknown plan should fallback to hard-coded 'regular'")
 }
 
 // Helper function to extract channel from schema JSON

@@ -43,8 +43,6 @@ func GetChannelFromConfig(configFetcher func() (string, error)) (string, error) 
 	return channel, nil
 }
 
-// GetChannelFromPlanConfig is a helper function that fetches the channel from a specific plan configuration.
-// If the plan configuration is not found, it falls back to "default".
 func GetChannelFromPlanConfig(configProvider config.ConfigMapConfigProvider, planName string) (string, error) {
 	configFetcher := func() (string, error) {
 		cfg := make(map[string]interface{})

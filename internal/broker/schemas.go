@@ -11,7 +11,6 @@ type SchemaService struct {
 	planSpec          *configuration.PlanSpecifications
 	providerSpec      *configuration.ProviderSpec
 	defaultOIDCConfig *pkg.OIDCConfigDTO
-	defaultChannel    string
 	planChannels      map[string]string
 
 	ingressFilteringPlans EnablePlans
@@ -19,9 +18,10 @@ type SchemaService struct {
 	cfg Config
 }
 
-func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *configuration.PlanSpecifications, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg Config, ingressFilteringPlans EnablePlans, defaultChannel string, configProvider config.ConfigMapConfigProvider) *SchemaService {
-	// Pre-compute channels for all known plans at initialization
-	planChannels := computePlanChannels(configProvider, defaultChannel)
+func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *configuration.PlanSpecifications, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg Config, ingressFilteringPlans EnablePlans, configProvider config.ConfigMapConfigProvider) *SchemaService {
+	// Pre-compute channels for all known plans at initialization.
+	// Each plan will use: plan-specific config → 'default' plan config → hard-coded 'regular'
+	planChannels := computePlanChannels(configProvider)
 
 	return &SchemaService{
 		planSpec:              planSpec,
@@ -29,13 +29,13 @@ func NewSchemaService(providerSpec *configuration.ProviderSpec, planSpec *config
 		defaultOIDCConfig:     defaultOIDCConfig,
 		cfg:                   cfg,
 		ingressFilteringPlans: ingressFilteringPlans,
-		defaultChannel:        defaultChannel,
 		planChannels:          planChannels,
 	}
 }
 
-// computePlanChannels pre-computes channel values for all known plans at startup
-func computePlanChannels(configProvider config.ConfigMapConfigProvider, fallbackChannel string) map[string]string {
+// computePlanChannels pre-computes channel values for all known plans at startup.
+// For each plan, it tries: plan-specific config → 'default' plan → hard-coded 'regular'.
+func computePlanChannels(configProvider config.ConfigMapConfigProvider) map[string]string {
 	planChannels := make(map[string]string)
 
 	// List of all plan names to check
@@ -58,8 +58,9 @@ func computePlanChannels(configProvider config.ConfigMapConfigProvider, fallback
 	for _, planName := range planNames {
 		channel, err := GetChannelFromPlanConfig(configProvider, planName)
 		if err != nil {
-			// If plan-specific config doesn't exist or has errors, use fallback
-			channel = fallbackChannel
+			// Ultimate fallback when neither plan-specific nor 'default' config exists.
+			// This should rarely happen in production.
+			channel = "regular"
 		}
 		planChannels[planName] = channel
 	}
@@ -72,8 +73,8 @@ func (s *SchemaService) getChannelForPlan(planName string) string {
 	if channel, exists := s.planChannels[planName]; exists {
 		return channel
 	}
-	// Ultimate fallback if plan not in pre-computed map
-	return s.defaultChannel
+	// Ultimate fallback if plan not in pre-computed map (should not happen)
+	return "regular"
 }
 
 func (s *SchemaService) Validate() error {

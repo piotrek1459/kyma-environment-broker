@@ -177,12 +177,26 @@ kyma-template: |-
   spec:
       sync:
           strategy: secret
-      channel: stable
+      channel: regular
       modules:
           - name: btp-operator
             customResourcePolicy: CreateAndDelete
           - name: keda
-            channel: fast
+`,
+			"trial": `
+kyma-template: |-
+  apiVersion: operator.kyma-project.io/v1beta2
+  kind: Kyma
+  metadata:
+      name: my-kyma
+      namespace: kyma-system
+  spec:
+      sync:
+          strategy: secret
+      channel: fast
+      modules:
+          - name: btp-operator
+          - name: api-gateway
 `,
 		},
 	}

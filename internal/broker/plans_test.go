@@ -157,16 +157,12 @@ func createSchemaService(t *testing.T) *SchemaService {
 	require.NoError(t, err)
 
 	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, err := GetChannelFromPlanConfig(configProvider, DefaultPlanName)
-	if err != nil {
-		defaultChannel = "regular"
-	}
 
 	schemaService := NewSchemaService(provider, plans, nil, Config{
 		RejectUnsupportedParameters: true,
 		EnablePlanUpgrades:          true,
 		DualStackDocsURL:            "https://placeholder.com",
-	}, EnablePlans{TrialPlanName, AzurePlanName, AzureLitePlanName, AWSPlanName, GCPPlanName, SapConvergedCloudPlanName, FreemiumPlanName}, defaultChannel, configProvider)
+	}, EnablePlans{TrialPlanName, AzurePlanName, AzureLitePlanName, AWSPlanName, GCPPlanName, SapConvergedCloudPlanName, FreemiumPlanName}, configProvider)
 	require.NoError(t, err)
 	return schemaService
 }

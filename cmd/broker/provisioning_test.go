@@ -3294,3 +3294,136 @@ func TestProvisioning_ZonesDiscovery(t *testing.T) {
 		assert.Subset(t, []string{"zone-h", "zone-i", "zone-j", "zone-k"}, runtime.Spec.Shoot.Provider.Workers[0].Zones)
 	})
 }
+
+func TestProvisioning_PlanSpecificChannels(t *testing.T) {
+	// This test verifies that different plans use their plan-specific default channels from configuration
+	// when the user doesn't provide an explicit channel parameter.
+	// Configuration (in suite_test.go):
+	//   - default plan: channel: regular
+	//   - trial plan:   channel: fast
+
+	t.Run("trial plan uses fast channel by default", func(t *testing.T) {
+		// given
+		cfg := fixConfig()
+		suite := NewBrokerSuiteTestWithConfig(t, cfg)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when - provision with trial plan WITHOUT specifying channel
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/cf-eu10/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "7d55d31d-35ae-4438-bf13-6ffdfa107d9f",
+					"context": {
+						"globalaccount_id": "g-account-id",
+						"subaccount_id": "sub-id",
+						"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "testing-cluster"
+					}
+		}`)
+
+		opID := suite.DecodeOperationID(resp)
+		suite.processKIMProvisioningByOperationID(opID)
+
+		// then - should use 'fast' channel from trial plan configuration
+		suite.WaitForOperationState(opID, domain.Succeeded)
+
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		require.NoError(t, err)
+
+		// Decode Kyma template to check channel
+		kymaTemplate, err := steps.DecodeKymaTemplate(op.KymaTemplate)
+		require.NoError(t, err)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel field should be present in Kyma template")
+		assert.Equal(t, "fast", channel, "trial plan should use 'fast' channel by default")
+	})
+
+	t.Run("aws plan uses regular channel by default", func(t *testing.T) {
+		// given
+		cfg := fixConfig()
+		suite := NewBrokerSuiteTestWithConfig(t, cfg)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when - provision with AWS plan WITHOUT specifying channel
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/cf-eu10/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "361c511f-f939-4621-b228-d0fb79a1fe15",
+					"context": {
+						"globalaccount_id": "g-account-id",
+						"subaccount_id": "sub-id",
+						"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "testing-cluster",
+						"region": "eu-central-1"
+					}
+		}`)
+
+		opID := suite.DecodeOperationID(resp)
+		suite.processKIMProvisioningByOperationID(opID)
+
+		// then - should use 'regular' channel (fallback to default plan configuration)
+		suite.WaitForOperationState(opID, domain.Succeeded)
+
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		require.NoError(t, err)
+
+		// Decode Kyma template to check channel
+		kymaTemplate, err := steps.DecodeKymaTemplate(op.KymaTemplate)
+		require.NoError(t, err)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel field should be present in Kyma template")
+		assert.Equal(t, "regular", channel, "AWS plan should use 'regular' channel (from default plan config)")
+	})
+
+	t.Run("user channel parameter overrides plan default", func(t *testing.T) {
+		// given
+		cfg := fixConfig()
+		suite := NewBrokerSuiteTestWithConfig(t, cfg)
+		defer suite.TearDown()
+		iid := uuid.New().String()
+
+		// when - provision with trial plan (default: fast) but user specifies 'regular'
+		resp := suite.CallAPI("PUT", fmt.Sprintf("oauth/cf-eu10/v2/service_instances/%s?accepts_incomplete=true", iid),
+			`{
+					"service_id": "47c9dcbf-ff30-448e-ab36-d3bad66ba281",
+					"plan_id": "7d55d31d-35ae-4438-bf13-6ffdfa107d9f",
+					"context": {
+						"globalaccount_id": "g-account-id",
+						"subaccount_id": "sub-id",
+						"user_id": "john.smith@email.com"
+					},
+					"parameters": {
+						"name": "testing-cluster",
+						"modules": {
+							"channel": "regular",
+							"list": []
+						}
+					}
+		}`)
+
+		opID := suite.DecodeOperationID(resp)
+		suite.processKIMProvisioningByOperationID(opID)
+
+		// then - should use user-provided 'regular' channel (overriding trial's 'fast')
+		suite.WaitForOperationState(opID, domain.Succeeded)
+
+		op, err := suite.db.Operations().GetOperationByID(opID)
+		require.NoError(t, err)
+
+		// Decode Kyma template to check channel
+		kymaTemplate, err := steps.DecodeKymaTemplate(op.KymaTemplate)
+		require.NoError(t, err)
+		channel, found, err := unstructured.NestedString(kymaTemplate.Object, "spec", "channel")
+		require.NoError(t, err)
+		require.True(t, found, "channel field should be present in Kyma template")
+		assert.Equal(t, "regular", channel, "user-provided channel should override plan default")
+	})
+}

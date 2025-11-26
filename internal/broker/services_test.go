@@ -171,12 +171,8 @@ func createSchemaService(t *testing.T, defaultOIDCConfig *pkg.OIDCConfigDTO, cfg
 	plans, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 
 	configProvider := config.NewConfigMapConfigProvider(testutil.NewFakeConfigProvider(), "test-config-map", config.RuntimeConfigurationRequiredFields)
-	defaultChannel, err := broker.GetChannelFromPlanConfig(configProvider, broker.DefaultPlanName)
-	if err != nil {
-		defaultChannel = "regular"
-	}
 
-	service := broker.NewSchemaService(provider, plans, defaultOIDCConfig, cfg, ingressFilteringPlans, defaultChannel, configProvider)
+	service := broker.NewSchemaService(provider, plans, defaultOIDCConfig, cfg, ingressFilteringPlans, configProvider)
 	require.NoError(t, err)
 	return service
 }
