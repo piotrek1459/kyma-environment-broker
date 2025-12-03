@@ -3,6 +3,7 @@ package postsql_test
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -1248,6 +1249,153 @@ func TestInstanceStorage_ListInstancesUsingLastOperationID(t *testing.T) {
 
 }
 
+func TestInstance_ModeCFB(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", false)
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	// when
+	instanceID := "instance-cfb"
+	instanceCFB := fixInstance(instanceData{val: instanceID})
+
+	err = brokerStorage.Instances().Insert(*instanceCFB)
+	require.NoError(t, err)
+
+	statsForInstances, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForInstances()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeCFB: 1}, statsForInstances))
+
+	// when
+	retrievedInstance, err := brokerStorage.Instances().GetByID(instanceID)
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedInstance.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedInstance.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceCFB.Parameters.Parameters.Kubeconfig, retrievedInstance.Parameters.Parameters.Kubeconfig)
+}
+
+func TestInstance_ModeGCM(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", true)
+	encrypter.SetWriteGCMMode(true)
+
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	// when
+	instanceID := "instance-gcm"
+	instanceGCM := fixInstance(instanceData{val: instanceID})
+
+	err = brokerStorage.Instances().Insert(*instanceGCM)
+	require.NoError(t, err)
+
+	// then
+	statsForInstances, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForInstances()
+	require.NoError(t, err)
+
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeGCM: 1}, statsForInstances))
+
+	// when
+	retrievedInstance, err := brokerStorage.Instances().GetByID(instanceID)
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedInstance.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedInstance.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceGCM.Parameters.Parameters.Kubeconfig, retrievedInstance.Parameters.Parameters.Kubeconfig)
+}
+
+func TestInstance_BothModes(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", false)
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	// when
+	instanceIdCFB := "instance-cfb"
+	instanceCFB := fixInstance(instanceData{val: instanceIdCFB})
+	instanceIdGCM := "instance-gcm"
+	instanceGCM := fixInstance(instanceData{val: instanceIdGCM})
+
+	err = brokerStorage.Instances().Insert(*instanceCFB)
+	require.NoError(t, err)
+
+	encrypter.SetWriteGCMMode(true)
+
+	err = brokerStorage.Instances().Insert(*instanceGCM)
+	require.NoError(t, err)
+
+	// then
+	statsForInstances, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForInstances()
+	require.NoError(t, err)
+
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeCFB: 1, storage.EncryptionModeGCM: 1}, statsForInstances))
+
+	retrievedInstanceCFB, err := brokerStorage.Instances().GetByID(instanceIdCFB)
+	require.NoError(t, err)
+	retrievedInstanceGCM, err := brokerStorage.Instances().GetByID(instanceIdGCM)
+	require.NoError(t, err)
+
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedInstanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedInstanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceCFB.Parameters.Parameters.Kubeconfig, retrievedInstanceCFB.Parameters.Parameters.Kubeconfig)
+
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedInstanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedInstanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceGCM.Parameters.Parameters.Kubeconfig, retrievedInstanceGCM.Parameters.Parameters.Kubeconfig)
+
+	// should read CFB and write GCM
+	updatedInstanceCFB, err := brokerStorage.Instances().Update(*retrievedInstanceCFB)
+	require.NoError(t, err)
+	// should read GCM and write GCM
+	updatedInstanceGCM, err := brokerStorage.Instances().Update(*retrievedInstanceGCM)
+	require.NoError(t, err)
+
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, updatedInstanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID, updatedInstanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceCFB.Parameters.Parameters.Kubeconfig, updatedInstanceCFB.Parameters.Parameters.Kubeconfig)
+
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, updatedInstanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID, updatedInstanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceGCM.Parameters.Parameters.Kubeconfig, updatedInstanceGCM.Parameters.Parameters.Kubeconfig)
+
+	updatedStats, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForInstances()
+	require.NoError(t, err)
+
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeGCM: 2}, updatedStats))
+
+	// check if we are able to read both instances
+	retrievedUpdatedCFB, err := brokerStorage.Instances().GetByID(instanceIdCFB)
+	require.NoError(t, err)
+	retrievedUpdatedGCM, err := brokerStorage.Instances().GetByID(instanceIdGCM)
+	require.NoError(t, err)
+
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedUpdatedCFB.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedUpdatedCFB.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceCFB.Parameters.Parameters.Kubeconfig, retrievedUpdatedCFB.Parameters.Parameters.Kubeconfig)
+
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedUpdatedGCM.Parameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, instanceGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID, retrievedUpdatedGCM.Parameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, instanceGCM.Parameters.Parameters.Kubeconfig, retrievedUpdatedGCM.Parameters.Parameters.Kubeconfig)
+
+}
+
 func assertInstanceByIgnoreTime(t *testing.T, want, got internal.Instance) {
 	t.Helper()
 	want.CreatedAt, got.CreatedAt = time.Time{}, time.Time{}
@@ -1316,6 +1464,13 @@ func fixInstance(testData instanceData) *internal.Instance {
 	instance.ProviderRegion = testData.val
 	instance.Parameters.ErsContext.SubAccountID = suid
 	instance.Parameters.ErsContext.GlobalAccountID = gaid
+	serviceManagerOperatorCredentials := internal.ServiceManagerOperatorCredentials{
+		ClientID:     fmt.Sprintf("client-id-%s", testData.val),
+		ClientSecret: fmt.Sprintf("client-secret-%s", testData.val),
+	}
+	instance.Parameters.ErsContext.SMOperatorCredentials = &serviceManagerOperatorCredentials
+	instance.Parameters.Parameters.Kubeconfig = fmt.Sprintf("kubeconfig-%s", testData.val)
+
 	instance.InstanceDetails = internal.InstanceDetails{}
 	if testData.expired {
 		instance.ExpiredAt = ptr.Time(time.Now().Add(-10 * time.Hour))

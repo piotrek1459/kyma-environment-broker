@@ -272,8 +272,11 @@ func main() {
 		fatalOnError(err, log)
 	}
 
+	cipher := storage.NewEncrypter(cfg.Database.SecretKey, cfg.Database.Fips.WriteGcm)
+
+	logDatabaseFipsFlags(cfg.Database, log)
+
 	// create storage
-	cipher := storage.NewEncrypter(cfg.Database.SecretKey)
 	var db storage.BrokerStorage
 	if cfg.DbInMemory {
 		db = storage.NewMemoryStorage()
@@ -291,6 +294,8 @@ func main() {
 	log.Info(fmt.Sprintf("KEB local time: %s time zone: %s", time.Now().String(), time.Now().Location().String()))
 	log.Info(fmt.Sprintf("Storage time zone: %s", timeZone))
 
+	// log statistics about encryption mode
+	logEncryptionModeStatistics(db, log)
 	// provides configuration for specified Kyma version and plan
 	configProvider := kebConfig.NewConfigProvider(
 		kebConfig.NewConfigMapReader(ctx, kcpK8sClient, log),
@@ -421,6 +426,21 @@ func main() {
 		log.Info(fmt.Sprintf("Call handled: method=%s url=%s statusCode=%d size=%d", r.Method, r.URL.Path, rec.StatusCode, rec.Size))
 	})
 	fatalOnError(http.ListenAndServe(cfg.Broker.Host+":"+cfg.Broker.Port, svr), log)
+}
+
+func logEncryptionModeStatistics(db storage.BrokerStorage, log *slog.Logger) {
+	stats := db.EncryptionModeStats()
+	instanceStats, err := stats.GetEncryptionModeStatsForInstances()
+	fatalOnError(err, log)
+	operationStats, err := stats.GetEncryptionModeStatsForOperations()
+	fatalOnError(err, log)
+	bindingStats, err := stats.GetEncryptionModeStatsForBindings()
+	fatalOnError(err, log)
+	log.Info(fmt.Sprintf("Encryption mode statistics: Instances: %v, Operations: %v, Bindings: %v", instanceStats, operationStats, bindingStats))
+}
+
+func logDatabaseFipsFlags(database storage.Config, log *slog.Logger) {
+	log.Info(fmt.Sprintf("Database FIPS WriteGcm mode: %v", database.Fips.WriteGcm))
 }
 
 func logConfiguration(logs *slog.Logger, cfg Config) {

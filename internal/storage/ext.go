@@ -123,6 +123,12 @@ type Actions interface {
 	ListActionsByInstanceID(instanceID string) ([]runtime.Action, error)
 }
 
+type EncryptionModeStats interface {
+	GetEncryptionModeStatsForInstances() (map[string]int, error)
+	GetEncryptionModeStatsForOperations() (map[string]int, error)
+	GetEncryptionModeStatsForBindings() (map[string]int, error)
+}
+
 type TimeZones interface {
 	GetTimeZone() (string, error)
 }

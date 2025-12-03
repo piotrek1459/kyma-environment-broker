@@ -2,6 +2,7 @@ package postsql_test
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -567,13 +568,192 @@ func TestOperation(t *testing.T) {
 	})
 }
 
+func TestOperation_ModeCFB(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", false)
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	operation := fixture.FixProvisioningOperation("op-id", "inst-id")
+	operation.ProvisioningParameters.ErsContext = internal.ERSContext{
+		SMOperatorCredentials: &internal.ServiceManagerOperatorCredentials{
+			ClientID:     "sm-client-id",
+			ClientSecret: "sm-client-secret",
+		},
+	}
+	operation.ProvisioningParameters.Parameters.Kubeconfig = "kube-config-data"
+
+	// when
+	err = brokerStorage.Operations().InsertOperation(operation)
+	require.NoError(t, err)
+
+	// when
+	retrievedOperation, err := brokerStorage.Operations().GetOperationByID("op-id")
+	require.NoError(t, err)
+
+	statsForOperations, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForOperations()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeCFB: 1}, statsForOperations))
+
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, operation.ProvisioningParameters.Parameters.Kubeconfig, retrievedOperation.ProvisioningParameters.Parameters.Kubeconfig)
+}
+
+func TestOperation_ModeGCM(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", true)
+	encrypter.SetWriteGCMMode(true)
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	operation := fixture.FixProvisioningOperation("op-id", "inst-id")
+	operation.ProvisioningParameters.ErsContext = internal.ERSContext{
+		SMOperatorCredentials: &internal.ServiceManagerOperatorCredentials{
+			ClientID:     "sm-client-id",
+			ClientSecret: "sm-client-secret",
+		},
+	}
+	operation.ProvisioningParameters.Parameters.Kubeconfig = "kube-config-data"
+
+	// when
+	err = brokerStorage.Operations().InsertOperation(operation)
+	require.NoError(t, err)
+
+	statsForOperations, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForOperations()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeGCM: 1}, statsForOperations))
+
+	// when
+	retrievedOperation, err := brokerStorage.Operations().GetOperationByID("op-id")
+	require.NoError(t, err)
+
+	// then
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+	// assert kubeconfig
+	assert.Equal(t, operation.ProvisioningParameters.Parameters.Kubeconfig, retrievedOperation.ProvisioningParameters.Parameters.Kubeconfig)
+
+}
+
+func TestOperation_BothModes(t *testing.T) {
+	// given
+	encrypter := storage.NewEncrypter("################################", false)
+	storageCleanup, brokerStorage, err := GetStorageForDatabaseTestsWithEncrypter(encrypter)
+	require.NoError(t, err)
+	defer func() {
+		err := storageCleanup()
+		assert.NoError(t, err)
+	}()
+
+	operation := fixture.FixProvisioningOperation("op-id", "inst-id")
+	operation.ProvisioningParameters.ErsContext = internal.ERSContext{
+		SMOperatorCredentials: &internal.ServiceManagerOperatorCredentials{
+			ClientID:     "sm-client-id",
+			ClientSecret: "sm-client-secret",
+		},
+	}
+	operation.ProvisioningParameters.Parameters.Kubeconfig = "kube-config-data"
+
+	// when
+	err = brokerStorage.Operations().InsertOperation(operation)
+	require.NoError(t, err)
+
+	statsForOperations, err := brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForOperations()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeCFB: 1}, statsForOperations))
+
+	// when
+	encrypter.SetWriteGCMMode(true)
+
+	operationGCM := fixture.FixProvisioningOperation("op-id-gcm", "inst-id-gcm")
+	operationGCM.ProvisioningParameters.ErsContext = internal.ERSContext{
+		SMOperatorCredentials: &internal.ServiceManagerOperatorCredentials{
+			ClientID:     "sm-client-id-gcm",
+			ClientSecret: "sm-client-secret-gcm",
+		},
+	}
+	operationGCM.ProvisioningParameters.Parameters.Kubeconfig = "kube-config-data-gcm"
+
+	// when
+	err = brokerStorage.Operations().InsertOperation(operationGCM)
+	require.NoError(t, err)
+
+	// when
+	statsForOperations, err = brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForOperations()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeCFB: 1, storage.EncryptionModeGCM: 1}, statsForOperations))
+
+	// when
+	retrievedOperation, err := brokerStorage.Operations().GetOperationByID("op-id")
+	require.NoError(t, err)
+
+	retrievedOperationGCM, err := brokerStorage.Operations().GetOperationByID("op-id-gcm")
+	require.NoError(t, err)
+
+	// then
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, retrievedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+	// assert kubeconfig
+	assert.Equal(t, operation.ProvisioningParameters.Parameters.Kubeconfig, retrievedOperation.ProvisioningParameters.Parameters.Kubeconfig)
+
+	assert.Equal(t, operationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, retrievedOperationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, retrievedOperationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+	// assert kubeconfig
+	assert.Equal(t, operationGCM.ProvisioningParameters.Parameters.Kubeconfig, retrievedOperationGCM.ProvisioningParameters.Parameters.Kubeconfig)
+
+	// then we update both operations and verify we can still read the secrets
+	retrievedOperation.Description = "updated description"
+	_, err = brokerStorage.Operations().UpdateOperation(*retrievedOperation)
+	require.NoError(t, err)
+
+	updatedOperation, err := brokerStorage.Operations().GetOperationByID("op-id")
+	require.NoError(t, err)
+	assert.Equal(t, "updated description", updatedOperation.Description)
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, updatedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, updatedOperation.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+
+	retrievedOperationGCM.Description = "updated description gcm"
+	_, err = brokerStorage.Operations().UpdateOperation(*retrievedOperationGCM)
+	require.NoError(t, err)
+	updatedOperationGCM, err := brokerStorage.Operations().GetOperationByID("op-id-gcm")
+	require.NoError(t, err)
+	assert.Equal(t, "updated description gcm", updatedOperationGCM.Description)
+	assert.Equal(t, operationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret, updatedOperationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientSecret)
+	assert.Equal(t, operationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID, updatedOperationGCM.ProvisioningParameters.ErsContext.SMOperatorCredentials.ClientID)
+	assert.Equal(t, operationGCM.ProvisioningParameters.Parameters.Kubeconfig, updatedOperationGCM.ProvisioningParameters.Parameters.Kubeconfig)
+
+	// check stats again
+	statsForOperations, err = brokerStorage.EncryptionModeStats().GetEncryptionModeStatsForOperations()
+	require.NoError(t, err)
+
+	// then
+	assert.True(t, reflect.DeepEqual(map[string]int{storage.EncryptionModeGCM: 2}, statsForOperations))
+}
+
 func assertRuntimeOperation(t *testing.T, operation internal.Operation) {
 	assert.Equal(t, fixture.GlobalAccountId, operation.RuntimeOperation.GlobalAccountID)
 	assert.Equal(t, fixture.Region, operation.RuntimeOperation.Region)
 }
 
 func assertDeprovisioningOperation(t *testing.T, expected, got internal.DeprovisioningOperation) {
-	// do not check zones and monothonic clock, see: https://golang.org/pkg/time/#Time
+	// do not check zones and monotonic clock, see: https://golang.org/pkg/time/#Time
 	assert.True(t, expected.CreatedAt.Equal(got.CreatedAt), fmt.Sprintf("Expected %s got %s", expected.CreatedAt, got.CreatedAt))
 	assert.Equal(t, expected.InstanceDetails, got.InstanceDetails)
 

@@ -22,6 +22,40 @@ type readSession struct {
 	session *dbr.Session
 }
 
+func (r readSession) GetEncryptionModeStatsForInstances() (map[string]int, error) {
+	return r.getEncryptionModeStats(InstancesTableName)
+}
+
+func (r readSession) GetEncryptionModeStatsForOperations() (map[string]int, error) {
+	return r.getEncryptionModeStats(OperationTableName)
+}
+
+func (r readSession) GetEncryptionModeStatsForBindings() (map[string]int, error) {
+	return r.getEncryptionModeStats(BindingsTableName)
+}
+
+func (r readSession) getEncryptionModeStats(tableName string) (map[string]int, error) {
+	var rows []dbmodel.EncryptionModeStatsDTO
+	var stmt *dbr.SelectStmt
+	stmt = r.session.
+		Select("encryption_mode", "count(*) as total").
+		From(tableName).
+		GroupBy("encryption_mode")
+
+	_, err := stmt.Load(&rows)
+
+	if err != nil {
+		return nil, err
+	}
+	mappedRows := make(map[string]int)
+	for _, row := range rows {
+		mode := row.EncryptionMode
+		mappedRows[mode] = row.Total
+	}
+
+	return mappedRows, err
+}
+
 func (r readSession) GetTimeZone() (string, dberr.Error) {
 	var timeZone string
 
