@@ -41,9 +41,9 @@ global:
       userNameSecretKey: "postgresql-broker-username"
   fips:
     # Write using AES-GCM encryption.
-    writeGCM: false
+    writeGCM: true
     # Rewrite old data using AES-GCM encryption.
-    rewriteCFB: false
+    rewriteCFB: true
     # Number of records to process in one batch during rewrite.
     rewriteBatchSize: 100
   images:
