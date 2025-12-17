@@ -73,7 +73,11 @@ func (k *OverrideKymaModules) handleModulesOverride(operation internal.Operation
 		return k.operationManager.OperationFailed(operation, "while decoding Kyma template from previous step: ", fmt.Errorf("object is nil"), k.logger)
 	}
 
-	if err := k.replaceModulesSpec(decodeKymaTemplate, modulesParams.List); err != nil {
+	var modulesList []pkg.ModuleDTO
+	if modulesParams.List != nil {
+		modulesList = *modulesParams.List
+	}
+	if err := k.replaceModulesSpec(decodeKymaTemplate, modulesList); err != nil {
 		k.logger.Error(fmt.Sprintf("unable to append modules to Kyma template: %s", err.Error()))
 		return k.operationManager.OperationFailed(operation, "unable to append modules to Kyma template:", err, k.logger)
 	}
@@ -118,7 +122,7 @@ func (k *OverrideKymaModules) prepareModulesSection(customModuleList []pkg.Modul
 	}
 
 	overridedModules := make([]pkg.ModuleDTO, 0)
-	if customModuleList == nil || len(customModuleList) == 0 {
+	if len(customModuleList) == 0 {
 		k.logger.Info("empty (0 items) list with custom modules passed to KEB, 0 modules will be installed - default config will be ignored")
 		return overridedModules
 	}

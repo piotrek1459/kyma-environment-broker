@@ -537,9 +537,9 @@ type OIDCConnectDTO struct {
 type Channel *string
 
 type ModulesDTO struct {
-	Channel Channel     `json:"channel,omitempty" yaml:"channel,omitempty"`
-	Default *bool       `json:"default,omitempty" yaml:"default,omitempty"`
-	List    []ModuleDTO `json:"list,omitempty" yaml:"list,omitempty"`
+	Channel Channel      `json:"channel,omitempty" yaml:"channel,omitempty"`
+	Default *bool        `json:"default,omitempty" yaml:"default,omitempty"`
+	List    *[]ModuleDTO `json:"list,omitempty" yaml:"list,omitempty"`
 }
 
 type CustomResourcePolicy *string
