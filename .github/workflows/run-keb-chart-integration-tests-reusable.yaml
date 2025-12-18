@@ -131,7 +131,13 @@ jobs:
             "context": {
               "globalaccount_id": "2f5011af-2fd3-44ba-ac60-eeb1148c2995",
               "subaccount_id": "8b9a0db4-9aef-4da2-a856-61a4420b66fd",
-              "user_id": "user@email.com"
+              "user_id": "user@email.com",
+              "sm_operator_credentials": {
+                "clientid": "cid",
+                "clientsecret": "cs",
+                "url": "url",
+                "sm_url": "sm_url"
+              }
             },
             "parameters": {
               "name": "azure-cluster",
@@ -157,6 +163,10 @@ jobs:
             done
             echo "RuntimeID: ${RUNTIME_ID}"
             echo "RUNTIME_ID=$RUNTIME_ID" >> $GITHUB_ENV
+
+      - name: Create kubeconfig secret for runtime
+        run: |
+          make create-kubeconfig-secret RUNTIME_ID=$RUNTIME_ID
               
       - name: Set RuntimeCR State to Ready
         run: |
@@ -181,6 +191,24 @@ jobs:
             sleep 5
           done
           make set-kyma-state KYMA_ID=$RUNTIME_ID STATE=Ready
+
+      - name: Set KEB pod name as global env
+        run: |
+          POD_NAME=$(kubectl get pods -n kcp-system -l app.kubernetes.io/name=kyma-environment-broker -o jsonpath="{.items[0].metadata.name}")
+          echo "KEB_POD_NAME=$POD_NAME" >> $GITHUB_ENV
+
+      - name: Check for errors and warnings in KEB logs after provisioning
+        run: ./scripts/testing/check-keb-logs.sh "$KEB_POD_NAME"
+
+      - name: Get runtime info
+        run: |
+          curl --request GET \
+          --url http://localhost:8080/info/runtimes \
+          --header 'Content-Type: application/json' \
+          --header 'X-Broker-API-Version: 2.16'
+
+      - name: Check for errors and warnings in KEB logs after getting runtime info
+        run: ./scripts/testing/check-keb-logs.sh "$KEB_POD_NAME"
 
       - name: Update the instance
         run: |
@@ -232,6 +260,9 @@ jobs:
             exit 1
           fi
 
+      - name: Check for errors and warnings in KEB logs after update
+        run: ./scripts/testing/check-keb-logs.sh "$KEB_POD_NAME" "true"
+
       - name: Deprovision the instance
         run: |
           curl --request DELETE \
@@ -269,6 +300,9 @@ jobs:
             echo "RuntimeCR still exists."
             exit 1
           fi
+
+      - name: Check for errors and warnings in KEB logs after deprovisioning
+        run: ./scripts/testing/check-keb-logs.sh "$KEB_POD_NAME" "true"
 
       - name: Print runtimes in case of failure
         if: ${{ !success() }}
