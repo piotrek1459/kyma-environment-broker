@@ -174,7 +174,7 @@
                 "regular": "Regular - default version"
                 },
                 "default": "fast",
-                "description": "For the default modules, specifies your preferred default release channel: Regular or Fast. For details, see \u003ca href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US\u0026q=IPv#modules\u003eModules\u003c/a\u003e.",
+                "description": "For the default modules, specifies your preferred default release channel: regular or fast. For details, see \u003ca href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US\u0026q=IPv#modules\u003eModules\u003c/a\u003e.",
                 "enum": [
                 "regular",
                 "fast"

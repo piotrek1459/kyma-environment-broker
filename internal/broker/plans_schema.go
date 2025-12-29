@@ -471,7 +471,7 @@ func NewModulesSchema(rejectUnsupportedParameters bool, defaultChannel string) *
 					Channel: Type{
 						Type:        "string",
 						Title:       "Default Module Channel",
-						Description: "For the default modules, specifies your preferred default release channel: Regular or Fast. For details, see <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US&q=IPv#modules>Modules</a>.",
+						Description: "For the default modules, specifies your preferred default release channel: regular or fast. For details, see <a href=https://help.sap.com/docs/btp/sap-business-technology-platform/provisioning-and-update-parameters-in-kyma-environment?locale=en-US&q=IPv#modules>Modules</a>.",
 						Enum:        ToInterfaceSlice([]string{"regular", "fast"}),
 						EnumDisplayName: map[string]string{
 							"regular": "Regular - default version",
