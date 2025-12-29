@@ -47,8 +47,6 @@ func (r *channelResolver) GetChannelForPlan(planName string) (string, error) {
 }
 
 func (r *channelResolver) loadChannels() error {
-	r.logger.Info("Loading channels from runtime configuration")
-
 	r.planChannelsCache = make(map[string]string)
 
 	defaultChannel, err := r.loadChannelForPlan("default")
@@ -56,8 +54,8 @@ func (r *channelResolver) loadChannels() error {
 		return fmt.Errorf("failed to load default channel (required): %w", err)
 	}
 	r.planChannelsCache["default"] = defaultChannel
-	r.logger.Info(fmt.Sprintf("Loaded default channel: %s", defaultChannel))
 
+	plansWithCustomChannel := 0
 	for _, planName := range r.planNames {
 		if planName == "default" {
 			continue
@@ -65,13 +63,16 @@ func (r *channelResolver) loadChannels() error {
 
 		channel, err := r.loadChannelForPlan(planName)
 		if err != nil {
-			r.logger.Info(fmt.Sprintf("Plan %s will use default channel: %s", planName, defaultChannel))
 			continue
 		}
+		if channel != defaultChannel {
+			r.logger.Info(fmt.Sprintf("Plan %s uses custom channel: %s", planName, channel))
+			plansWithCustomChannel++
+		}
 		r.planChannelsCache[planName] = channel
-		r.logger.Info(fmt.Sprintf("Loaded channel for plan %s: %s", planName, channel))
 	}
 
+	r.logger.Info(fmt.Sprintf("Loaded channels: default=%s, plans=%d, custom=%d", defaultChannel, len(r.planNames), plansWithCustomChannel))
 	return nil
 }
 
