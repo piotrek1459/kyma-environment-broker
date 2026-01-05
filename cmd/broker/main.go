@@ -697,6 +697,7 @@ func createAPI(router *httputil.Router, schemaService *broker.SchemaService, ser
 
 	if r, _ := cfg.GardenerSubscriptionResource(); r == gardener.CredentialsBindingResource {
 		kymaEnvBroker.ProvisionEndpoint.UseCredentialsBindings()
+		kymaEnvBroker.UpdateEndpoint.UseCredentialsBindings()
 	}
 
 	// Wrap broker with panic recovery for all OSB endpoints
