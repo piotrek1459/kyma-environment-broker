@@ -179,6 +179,8 @@ const (
 	provisioningTakesLongThreshold        = 20 * time.Minute
 )
 
+var Version string
+
 func periodicProfile(logger *slog.Logger, profiler ProfilerConfig) {
 	if profiler.Memory == false {
 		return
