@@ -154,6 +154,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Provision instances
         run: |
@@ -225,6 +228,12 @@ jobs:
             exit 1
           fi
 
+      - name: Set up Python
+        if: ${{ inputs.post-test-monitoring-minutes > 0 }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
       - name: Analyze metrics for leaks
         if: ${{ inputs.post-test-monitoring-minutes > 0 }}
         run: |
@@ -232,7 +241,7 @@ jobs:
           export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
           export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
           export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
-          bash scripts/testing/compare_performance_metrics.sh
+          python3 scripts/python/compare_performance_metrics.py
 
   run-concurrent-update-test:
     runs-on: ubuntu-latest
@@ -285,6 +294,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Provision instances
         run: |
@@ -413,7 +425,7 @@ jobs:
           export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
           export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
           export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
-          bash scripts/testing/compare_performance_metrics.sh
+          python3 scripts/python/compare_performance_metrics.py
 
   run-multiple-updates-on-a-single-instance-test:
     runs-on: ubuntu-latest
@@ -464,6 +476,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Provision the instance
         run: |
@@ -557,6 +572,12 @@ jobs:
 
           scripts/generate_charts.sh
 
+      - name: Set up Python
+        if: ${{ inputs.post-test-monitoring-minutes > 0 }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
       - name: Analyze metrics for leaks
         if: ${{ inputs.post-test-monitoring-minutes > 0 }}
         run: |
@@ -564,7 +585,7 @@ jobs:
           export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
           export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
           export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
-          bash scripts/testing/compare_performance_metrics.sh
+          python3 scripts/python/compare_performance_metrics.py
 
   run-concurrent-deprovisoning-test:
     runs-on: ubuntu-latest
@@ -617,6 +638,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Provision instances
         run: |
@@ -749,6 +773,12 @@ jobs:
 
           scripts/generate_charts.sh
 
+      - name: Set up Python
+        if: ${{ inputs.post-test-monitoring-minutes > 0 }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
       - name: Analyze metrics for leaks
         if: ${{ inputs.post-test-monitoring-minutes > 0 }}
         run: |
@@ -756,7 +786,7 @@ jobs:
           export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
           export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
           export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
-          bash scripts/testing/compare_performance_metrics.sh
+          python3 scripts/python/compare_performance_metrics.py
 
   run-mixed-operations-test:
     runs-on: ubuntu-latest
@@ -811,6 +841,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Provision instances
         run: |
@@ -1072,6 +1105,12 @@ jobs:
 
           scripts/generate_charts.sh
 
+      - name: Set up Python
+        if: ${{ inputs.post-test-monitoring-minutes > 0 }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
       - name: Analyze metrics for leaks
         if: ${{ inputs.post-test-monitoring-minutes > 0 }}
         run: |
@@ -1079,7 +1118,7 @@ jobs:
           export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
           export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
           export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
-          bash scripts/testing/compare_performance_metrics.sh
+          python3 scripts/python/compare_performance_metrics.py
 
   run-runtimes-endpoint-test:
     runs-on: ubuntu-latest
@@ -1110,6 +1149,9 @@ jobs:
           echo "Collecting baseline metrics for ${{ inputs.baseline-monitoring-minutes }} minutes..."
           sleep $((${{ inputs.baseline-monitoring-minutes }} * 60))
           echo "Baseline monitoring completed"
+          
+          # Mark the end of baseline period
+          wc -l < /tmp/keb_metrics.jsonl > /tmp/baseline_samples_count
 
       - name: Fetch runtimes using GET endpoint
         run: |
@@ -1206,3 +1248,68 @@ jobs:
         if: ${{ inputs.post-test-monitoring-minutes > 0 }}
         run: |
           echo "Disabled"
+
+  run-idle-monitoring-test:
+    # Only run for nightly scheduled runs or manual workflow_dispatch, skip for PR/release
+    if: ${{ inputs.release == 'true' && inputs.version == '' }}
+    runs-on: ubuntu-latest
+    needs: prepare-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Prepare K3s cluster and docker registry
+        run: "./scripts/testing/k3s-setup.sh ${{ needs.prepare-tests.outputs.version }} --wait"
+
+      - name: Install KEB chart
+        run: |
+          if [ "${{ inputs.release }}" == "true" ]; then
+            make install VERSION=${{ inputs.version }}
+          else
+            make install VERSION=PR-${{ inputs.version }}
+          fi
+
+      - name: Start metrics collector
+        run: |
+          nohup bash scripts/monitor_metrics.sh > /dev/null 2>&1 &
+          echo $! > /tmp/metrics_pid
+
+      - name: First monitoring period (baseline)
+        run: |
+          DURATION=${{ inputs.baseline-monitoring-minutes }}
+          if [ "$DURATION" -eq 0 ]; then
+            DURATION=5
+          fi
+          echo "First monitoring period: $DURATION minutes..."
+          sleep $(($DURATION * 60))
+          echo "First monitoring period completed"
+
+      - name: Second monitoring period (post-test)
+        run: |
+          DURATION=${{ inputs.post-test-monitoring-minutes }}
+          if [ "$DURATION" -eq 0 ]; then
+            DURATION=5
+          fi
+          echo "Second monitoring period: $DURATION minutes..."
+          sleep $(($DURATION * 60))
+          echo "Second monitoring period completed"
+
+      - name: Generate charts
+        run: |
+          sleep 15
+          scripts/generate_charts.sh
+
+      - name: Set up Python
+        if: ${{ inputs.post-test-monitoring-minutes > 0 || inputs.baseline-monitoring-minutes > 0 }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
+      - name: Analyze metrics for leaks (idle system)
+        if: ${{ inputs.post-test-monitoring-minutes > 0 || inputs.baseline-monitoring-minutes > 0 }}
+        run: |
+          export MEMORY_GROWTH_THRESHOLD_PERCENT=${{ inputs.memory-growth-threshold-percent }}
+          export GOROUTINE_INCREASE_THRESHOLD=${{ inputs.goroutine-increase-threshold }}
+          export FD_INCREASE_THRESHOLD=${{ inputs.fd-increase-threshold }}
+          export DB_CONN_INCREASE_THRESHOLD=${{ inputs.db-conn-increase-threshold }}
+          python3 scripts/python/compare_performance_metrics.py
