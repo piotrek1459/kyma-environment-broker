@@ -167,14 +167,8 @@ type KubeconfigProvider interface {
 }
 
 const (
-	createRuntimeStageName                = "create_runtime"
-	createKymaResourceStageName           = "create_kyma_resource"
-	checkRuntimeStageName                 = "check_runtime_resource"
-	syncKubeconfigStageName               = "sync_kubeconfig"
-	injectBTPOperatorCredentialsStageName = "inject_btp_operator_credentials"
-	startStageName                        = "start"
-	brokerAPISubrouterName                = "brokerAPI"
-	provisioningTakesLongThreshold        = 20 * time.Minute
+	brokerAPISubrouterName         = "brokerAPI"
+	provisioningTakesLongThreshold = 20 * time.Minute
 )
 
 var Version string
@@ -325,7 +319,7 @@ func main() {
 	// metrics collectors
 	_ = metrics.Register(ctx, eventBroker, db, cfg.Metrics, log)
 
-	rulesService, err := rules.NewRulesServiceFromFile(cfg.HapRuleFilePath, sets.New(broker.AvailablePlans.GetAllPlanNamesAsStrings()...), sets.New([]string(cfg.Broker.EnablePlans)...).Delete("own_cluster"))
+	rulesService, err := rules.NewRulesServiceFromFile(cfg.HapRuleFilePath, sets.New(broker.AvailablePlans.GetAllPlanNamesAsStrings()...), sets.New([]string(cfg.Broker.EnablePlans)...))
 	fatalOnError(err, log)
 
 	rulesetValid := rulesService.IsRulesetValid()
@@ -388,7 +382,7 @@ func main() {
 	router.Handle("/metrics", promhttp.Handler())
 
 	// create SKR kubeconfig endpoint
-	kcHandler := kubeconfig.NewHandler(db, kcBuilder, cfg.Kubeconfig.AllowOrigins, broker.OwnClusterPlanID, log.With("service", "kubeconfigHandle"))
+	kcHandler := kubeconfig.NewHandler(db, kcBuilder, cfg.Kubeconfig.AllowOrigins, log.With("service", "kubeconfigHandle"))
 	kcHandler.AttachRoutes(router)
 
 	if !cfg.DisableProcessOperationsInProgress {
