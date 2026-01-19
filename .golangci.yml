@@ -1,15 +1,27 @@
+version: "2"
+
 run:
   allow-parallel-runners: true
   timeout: 2m
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 output:
-  format: "colored-tab:stderr,github-actions:stdout"
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: false
+  formats:
+    text:
+      print-issued-lines: true
+      print-linter-name: true
+
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
+    # High-value linters with excellent signal-to-noise ratio
+    - errcheck    # Check for unchecked errors
+    - govet       # Go's built-in static analyzer 
+
+formatters:
+  enable:
     - goimports
-    - govet
     - gofmt
