@@ -35,7 +35,6 @@ func TestLastOperationWithoutOperationIDHappyPath(t *testing.T) {
 		}
 	}`)
 	defer func() { _ = resp.Body.Close() }()
-	defer func() { _ = resp.Body.Close() }()
 	opID := suite.DecodeOperationID(resp)
 	suite.processKIMProvisioningByOperationID(opID)
 
@@ -72,7 +71,6 @@ func TestLastOperationWithOperationIDHappyPath(t *testing.T) {
 			"name": "testing-cluster"
 		}
 	}`)
-	defer func() { _ = resp.Body.Close() }()
 	defer func() { _ = resp.Body.Close() }()
 	opID := suite.DecodeOperationID(resp)
 	suite.processKIMProvisioningByOperationID(opID)
