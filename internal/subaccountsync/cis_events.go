@@ -61,6 +61,7 @@ func (c *RateLimitedCisClient) fetchEventsPage(page int, fromActionTime int64) (
 	if err != nil {
 		return CisEventsResponse{}, fmt.Errorf("while executing request to event service: %v", err)
 	}
+	defer func() { _ = response.Body.Close() }()
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {

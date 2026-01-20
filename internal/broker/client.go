@@ -171,6 +171,7 @@ func (c *Client) SendExpirationRequest(instance internal.Instance) (suspensionUn
 		return false, fmt.Errorf("while executing request URL: %s for instanceID: %s: %w", request.URL,
 			instance.InstanceID, err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	defer c.warnOnError(resp.Body.Close)
 
 	return processResponse(instance.InstanceID, resp.StatusCode, resp)
@@ -183,6 +184,7 @@ func (c *Client) GetInstanceRequest(instanceID string) (response *http.Response,
 	}
 
 	resp, err := c.httpClient.Do(request)
+	defer func() { _ = resp.Body.Close() }()
 	if err != nil {
 		return nil, fmt.Errorf("while executing request URL: %s for instanceID: %s: %w", request.URL,
 			instanceID, err)
@@ -328,6 +330,7 @@ func (c *Client) executeRequest(method, url string, expectedStatus int, requestB
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	defer c.warnOnError(resp.Body.Close)
 	if resp.StatusCode != expectedStatus {

@@ -84,6 +84,7 @@ func (c *Client) do(subAccountID, planName string) (int, error, bool) {
 		c.log.Error(fmt.Sprintf("Authentication API returned: %v", err))
 		return 0, fmt.Errorf("The authentication service is currently unavailable. Please try again later"), true
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	defer func(body io.ReadCloser) {
 		err := body.Close()

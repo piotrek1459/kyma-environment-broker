@@ -42,6 +42,7 @@ func (c *RateLimitedCisClient) GetSubaccountData(subaccountID string) (CisStateT
 	if err != nil {
 		return CisStateType{}, fmt.Errorf("while executing request to accounts technical service: %w", err)
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()

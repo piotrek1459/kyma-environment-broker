@@ -144,6 +144,7 @@ func (s *DeprovisionRetriggerService) getInstanceReturned404(instanceID string) 
 		slog.Error(fmt.Sprintf("while trying to GET instance resource for %s: %s", instanceID, err))
 		return false
 	}
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusNotFound {
 		slog.Error(fmt.Sprintf("unexpectedly GET instance resource for %s: returned %s", instanceID, http.StatusText(response.StatusCode)))
 		return false
