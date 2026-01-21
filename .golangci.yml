@@ -17,9 +17,9 @@ output:
 linters:
   default: none
   enable:
-    # High-value linters with excellent signal-to-noise ratio
     - errcheck    # Check for unchecked errors
     - govet       # Go's built-in static analyzer 
+    - bodyclose   # Check whether HTTP response bodies are closed
 
 formatters:
   enable:

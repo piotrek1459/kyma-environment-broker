@@ -171,7 +171,11 @@ func (c *Client) SendExpirationRequest(instance internal.Instance) (suspensionUn
 		return false, fmt.Errorf("while executing request URL: %s for instanceID: %s: %w", request.URL,
 			instance.InstanceID, err)
 	}
-	defer c.warnOnError(resp.Body.Close)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn(err.Error())
+		}
+	}()
 
 	return processResponse(instance.InstanceID, resp.StatusCode, resp)
 }
@@ -187,7 +191,11 @@ func (c *Client) GetInstanceRequest(instanceID string) (response *http.Response,
 		return nil, fmt.Errorf("while executing request URL: %s for instanceID: %s: %w", request.URL,
 			instanceID, err)
 	}
-	defer c.warnOnError(resp.Body.Close)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn(err.Error())
+		}
+	}()
 
 	return resp, nil
 }
@@ -328,8 +336,11 @@ func (c *Client) executeRequest(method, url string, expectedStatus int, requestB
 	if err != nil {
 		return err
 	}
-
-	defer c.warnOnError(resp.Body.Close)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn(err.Error())
+		}
+	}()
 	if resp.StatusCode != expectedStatus {
 		return NewUnexpectedStatusCodeError(expectedStatus, resp.StatusCode)
 	}
