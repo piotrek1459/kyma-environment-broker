@@ -49,7 +49,7 @@ func (s *ResolveCredentialsBindingStep) Run(operation internal.Operation, log *s
 	targetSecretName, err := s.resolveSecretName(operation, log)
 	if err != nil {
 		msg := "resolving secret name"
-		// Use error message directly if it's an account pool dependency error
+		// Case if there are no unassigned secrets, we want to use the error message defined in the step instead of the generic one from the error type
 		if lastErr, ok := err.(kebError.LastError); ok && lastErr.Component == kebError.AccountPoolDependency {
 			msg = lastErr.Message
 		}
