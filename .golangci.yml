@@ -20,11 +20,19 @@ linters:
     - unused      # Detect unused constants, variables, functions and types
     - cyclop      # Check code complexity
     - staticcheck # Check set of rules from staticcheck
+    - gosec       # Check for security issues
   settings:
     unused:
       field-writes-are-uses: false # Mark all struct fields that have been written to as used.
     cyclop:
       max-complexity: 30
+    gosec:
+      excludes:
+        - G101 # False positives on variable names containing "Secret" (resource names, not credentials)
+        - G115 # Integer overflow int->int32 (values are validated and within range)
+        - G204 # Subprocess injection (script paths from known source code locations)
+        - G304 # File inclusion via variable (paths from server configuration, not user input)
+        - G404 # Weak random generator (math/rand used only in tests)
     staticcheck:
       checks:
         - "all"

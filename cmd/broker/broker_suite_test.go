@@ -966,7 +966,7 @@ func (s *BrokerSuiteTest) AssertBTPOperatorSecret() {
 	assert.Equal(s.t, "btp-operator", secret.Name)
 }
 
-func (s *BrokerSuiteTest) assertAdditionalWorkerIsCreated(t *testing.T, provider imv1.Provider, name, machineType string, autoScalerMin, autoScalerMax, zonesNumer int) {
+func (s *BrokerSuiteTest) assertAdditionalWorkerIsCreated(t *testing.T, provider imv1.Provider, name, machineType string, autoScalerMin, autoScalerMax int32, zonesNumer int) {
 	var worker *v1beta1.Worker
 	for _, additionalWorker := range *provider.AdditionalWorkers {
 		if additionalWorker.Name == name {
@@ -975,8 +975,8 @@ func (s *BrokerSuiteTest) assertAdditionalWorkerIsCreated(t *testing.T, provider
 	}
 	require.NotNil(t, worker)
 	assert.Equal(t, machineType, worker.Machine.Type)
-	assert.Equal(t, int32(autoScalerMin), worker.Minimum)
-	assert.Equal(t, int32(autoScalerMax), worker.Maximum)
+	assert.Equal(t, autoScalerMin, worker.Minimum)
+	assert.Equal(t, autoScalerMax, worker.Maximum)
 	assert.Equal(t, zonesNumer, worker.MaxSurge.IntValue())
 	assert.Len(t, worker.Zones, zonesNumer)
 }

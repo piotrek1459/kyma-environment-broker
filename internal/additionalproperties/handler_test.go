@@ -21,12 +21,12 @@ func TestGetAdditionalProperties(t *testing.T) {
 
 	provisioningFile := filepath.Join(tempDir, ProvisioningRequestsFileName)
 	provisioningContent := `{"globalAccountID":"ga1","subAccountID":"sa1","instanceID":"id1","payload":{"key":"provisioning1"}}`
-	err := os.WriteFile(provisioningFile, []byte(provisioningContent), 0644)
+	err := os.WriteFile(provisioningFile, []byte(provisioningContent), 0600)
 	require.NoError(t, err)
 
 	updateFile := filepath.Join(tempDir, UpdateRequestsFileName)
 	updateContent := `{"globalAccountID":"ga2","subAccountID":"sa2","instanceID":"id2","payload":{"key":"update1"}}`
-	err = os.WriteFile(updateFile, []byte(updateContent), 0644)
+	err = os.WriteFile(updateFile, []byte(updateContent), 0600)
 	require.NoError(t, err)
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -123,7 +123,7 @@ func TestGetAdditionalProperties_Paging(t *testing.T) {
 		line := fmt.Sprintf(`{"globalAccountID":"ga%d","subAccountID":"sa%d","instanceID":"id%d","payload":{"key":"p%d"}}`, i, i, i, i)
 		content += line + "\n"
 	}
-	err := os.WriteFile(provisioningFile, []byte(content), 0644)
+	err := os.WriteFile(provisioningFile, []byte(content), 0600)
 	require.NoError(t, err)
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))

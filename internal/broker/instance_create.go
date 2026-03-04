@@ -1013,7 +1013,7 @@ func insertRequest(instanceID, filePath string, ersContext internal.ERSContext, 
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}

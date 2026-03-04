@@ -180,7 +180,7 @@ func periodicProfile(logger *slog.Logger, profiler ProfilerConfig) {
 		return
 	}
 	logger.Info(fmt.Sprintf("Starting periodic profiler %v", profiler))
-	if err := os.MkdirAll(profiler.Path, os.ModePerm); err != nil {
+	if err := os.MkdirAll(profiler.Path, 0750); err != nil {
 		logger.Error(fmt.Sprintf("Failed to create dir %v for profile storage: %v", profiler.Path, err))
 	}
 	for {
@@ -283,7 +283,7 @@ func main() {
 	skrK8sClientProvider := kubeconfig.NewK8sClientFromSecretProvider(kcpK8sClient)
 
 	if cfg.Broker.MonitorAdditionalProperties {
-		err := os.MkdirAll(cfg.Broker.AdditionalPropertiesPath, os.ModePerm)
+		err := os.MkdirAll(cfg.Broker.AdditionalPropertiesPath, 0750)
 		fatalOnError(err, log)
 	}
 
@@ -439,7 +439,16 @@ func main() {
 		router.ServeHTTP(rec, r)
 		log.Info(fmt.Sprintf("Call handled: method=%s url=%s statusCode=%d size=%d", r.Method, r.URL.Path, rec.StatusCode, rec.Size))
 	})
-	fatalOnError(http.ListenAndServe(cfg.Broker.Host+":"+cfg.Broker.Port, svr), log)
+
+	httpServer := &http.Server{
+		Addr:              cfg.Broker.Host + ":" + cfg.Broker.Port,
+		Handler:           svr,
+		ReadTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	fatalOnError(httpServer.ListenAndServe(), log)
 }
 
 func logConfiguration(logs *slog.Logger, cfg Config) {

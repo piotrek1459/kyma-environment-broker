@@ -1646,8 +1646,8 @@ func assertWorkers(t *testing.T, workers []gardener.Worker, machine string, maxi
 	assert.Equal(t, workers[0].Machine.Type, machine)
 	assert.Equal(t, workers[0].MaxSurge.IntValue(), maxSurge)
 	assert.Equal(t, workers[0].MaxUnavailable.IntValue(), maxUnavailable)
-	assert.Equal(t, workers[0].Maximum, int32(maximum))
-	assert.Equal(t, workers[0].Minimum, int32(minimum))
+	assert.EqualValues(t, maximum, workers[0].Maximum)
+	assert.EqualValues(t, minimum, workers[0].Minimum)
 }
 
 func assertWorkersWithVolume(t *testing.T, workers []gardener.Worker, machine string, maximum, minimum, maxSurge, maxUnavailable int, zoneCount int, zones []string, volumeSize, volumeType string) {
@@ -1657,8 +1657,8 @@ func assertWorkersWithVolume(t *testing.T, workers []gardener.Worker, machine st
 	assert.Equal(t, workers[0].Machine.Type, machine)
 	assert.Equal(t, workers[0].MaxSurge.IntValue(), maxSurge)
 	assert.Equal(t, workers[0].MaxUnavailable.IntValue(), maxUnavailable)
-	assert.Equal(t, workers[0].Maximum, int32(maximum))
-	assert.Equal(t, workers[0].Minimum, int32(minimum))
+	assert.EqualValues(t, maximum, workers[0].Maximum)
+	assert.EqualValues(t, minimum, workers[0].Minimum)
 	assert.Equal(t, workers[0].Volume.VolumeSize, volumeSize)
 	assert.Equal(t, *workers[0].Volume.Type, volumeType)
 }

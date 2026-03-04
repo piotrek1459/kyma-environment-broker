@@ -96,7 +96,12 @@ func (s *SyncService) Run() {
 
 	go func() {
 		address := fmt.Sprintf(":%s", s.cfg.MetricsPort)
-		err := http.ListenAndServe(address, nil)
+		metricsServer := &http.Server{
+			Addr:              address,
+			Handler:           nil,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		err := metricsServer.ListenAndServe()
 		if err != nil {
 			logger.Error(fmt.Sprintf("while serving metrics: %s", err))
 		}

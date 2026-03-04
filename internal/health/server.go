@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/kyma-project/kyma-environment-broker/internal/httputil"
 )
@@ -24,7 +25,12 @@ func (srv *Server) ServeAsync() {
 	healthRouter := httputil.NewRouter()
 	healthRouter.HandleFunc("/healthz", livenessHandler())
 	go func() {
-		err := http.ListenAndServe(srv.Address, healthRouter)
+		healthServer := &http.Server{
+			Addr:              srv.Address,
+			Handler:           healthRouter,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		err := healthServer.ListenAndServe()
 		if err != nil {
 			srv.Log.Error(fmt.Sprintf("HTTP Health server ListenAndServe: %v", err))
 		}
