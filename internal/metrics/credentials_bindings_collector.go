@@ -28,7 +28,7 @@ type GardenerCredentialsBindingsLister interface {
 //     Number of active instances per CredentialsBinding.
 //
 //   - kcp_keb_v2_available_credentials_bindings{hyperscaler_type}
-//     Number of unclaimed CredentialsBindings per hyperscaler type.
+//     Number of unclaimed, not shared, and not dirty CredentialsBindings per hyperscaler type.
 type CredentialsBindingsCollector struct {
 	statsGetter             CredentialsBindingsStatsGetter
 	gardenerClient          GardenerCredentialsBindingsLister
@@ -119,7 +119,7 @@ func (c *CredentialsBindingsCollector) updateAvailableMetrics() {
 	c.gardenerMu.Lock()
 	defer c.gardenerMu.Unlock()
 
-	list, err := c.gardenerClient.GetCredentialsBindings(fmt.Sprintf("!%s", gardener.TenantNameLabelKey))
+	list, err := c.gardenerClient.GetCredentialsBindings(fmt.Sprintf("!%s,%s!=true,!%s", gardener.TenantNameLabelKey, gardener.SharedLabelKey, gardener.DirtyLabelKey))
 	if err != nil {
 		c.logger.Error(fmt.Sprintf("%s -> failed to get available credentials bindings: %s", logPrefix, err.Error()))
 		return
