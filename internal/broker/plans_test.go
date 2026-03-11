@@ -3,6 +3,7 @@ package broker
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"os"
 	"path"
 	"testing"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+var updateGolden = flag.Bool("update", false, "update golden testdata files")
 
 func TestSchemaService_Alicloud(t *testing.T) {
 	schemaService := createSchemaService(t)
@@ -101,6 +104,23 @@ func TestSchemaService_Trial(t *testing.T) {
 }
 
 func validateSchema(t *testing.T, actual []byte, file string) {
+	var prettyActual bytes.Buffer
+	if len(actual) > 0 {
+		err := json.Indent(&prettyActual, actual, "", "  ")
+		if err != nil {
+			t.Error(err)
+			t.Fail()
+		}
+	}
+
+	filename := path.Join("testdata", file)
+	if *updateGolden {
+		err := os.WriteFile(filename, append(prettyActual.Bytes(), '\n'), 0644)
+		require.NoError(t, err)
+		t.Logf("Updated golden file: %s", filename)
+		return
+	}
+
 	var prettyExpected bytes.Buffer
 	expected := readJsonFile(t, file)
 	if len(expected) > 0 {
@@ -111,14 +131,6 @@ func validateSchema(t *testing.T, actual []byte, file string) {
 		}
 	}
 
-	var prettyActual bytes.Buffer
-	if len(actual) > 0 {
-		err := json.Indent(&prettyActual, actual, "", "  ")
-		if err != nil {
-			t.Error(err)
-			t.Fail()
-		}
-	}
 	if !assert.JSONEq(t, prettyActual.String(), prettyExpected.String()) {
 		t.Errorf("%v Schema() = \n######### Actual ###########%v\n######### End Actual ########, expected \n##### Expected #####%v\n##### End Expected #####", file, prettyActual.String(), prettyExpected.String())
 	}
