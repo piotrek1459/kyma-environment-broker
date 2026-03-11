@@ -2,6 +2,7 @@
 
 To create an SAP BTP, Kyma runtime with additional worker node pools, specify the **additionalWorkerNodePools** provisioning parameter.
 To use the additional worker node pool feature, you must provide the following values: **name**, **machineType**, **haZones**, **autoScalerMin**, and **autoScalerMax**.
+Optionally, you can also specify **taints** to control Pod scheduling on the worker node pool nodes.
 
 See the example:
 
@@ -34,7 +35,14 @@ See the example:
                    \"machineType\": \"Standard_D4s_v5\",
                    \"haZones\": false,
                    \"autoScalerMin\": 1,
-                   \"autoScalerMax\": 1
+                   \"autoScalerMax\": 1,
+                   \"taints\": [
+                       {
+                           \"key\": \"dedicated\",
+                           \"value\": \"gpu\",
+                           \"effect\": \"NoSchedule\"
+                       }
+                   ]
                }
            ]
        }
@@ -55,6 +63,19 @@ In this scenario, you must set **autoScalerMin** to at least `3`.
 If high availability is disabled, all resources are placed in a single, randomly selected zone. In this case, you can set **autoScalerMin** to `0` and **autoScalerMax** to `1`, which helps reduce costs. 
 However, it is not recommended for production environments. Setting the **autoScalerMin** value to 0 results in an automatic removal of the additional worker nodes depending on the current workload in the cluster.
 If there are no user workloads deployed onto the nodes associated with the given additional worker node pool, the nodes are removed automatically. The process should take around 30 minutes.
+
+## Taints
+
+You can optionally specify **taints** for each additional worker node pool. Taints allow a node to repel a set of Pods unless those Pods have matching tolerations. Each taint consists of the following properties:
+
+| Property   | Type   | Description                                                    | Required |
+|------------|--------|----------------------------------------------------------------|:--------:|
+| **key**    | string | Specifies the taint key.                                       |   Yes    |
+| **value**  | string | Specifies the taint value.                                     |    No    |
+| **effect** | string | Specifies the taint effect: `NoSchedule`, `PreferNoSchedule`, or `NoExecute`. |   Yes    |
+
+If you do not provide the **taints** list, no taints are applied to the worker node pool nodes.
+To remove taints from an existing worker node pool, provide the pool in the update request with an empty **taints** list.
 
 See the following JSON example without the **additionalWorkerNodePools** list:
 
