@@ -588,13 +588,10 @@ func (a AdditionalWorkerNodePool) Validate() error {
 	if a.AutoScalerMin < 0 {
 		return fmt.Errorf("AutoScalerMin value cannot be lower than 0 for %s additional worker node pool", a.Name)
 	}
-	if err := validateTaints(a.Taints, a.Name); err != nil {
-		return err
-	}
 	return nil
 }
 
-func validateTaints(taints []TaintDTO, poolName string) error {
+func (a AdditionalWorkerNodePool) ValidateTaints(taints []TaintDTO, poolName string) error {
 	validEffects := map[TaintEffect]struct{}{
 		TaintEffectNoSchedule:       {},
 		TaintEffectPreferNoSchedule: {},
