@@ -21,7 +21,7 @@
       "items": {
         "type": "object",
         "required": ["name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"],
-        "_controlsOrder": ["name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"],
+        "_controlsOrder": ["name", "machineType", "haZones", "autoScalerMin", "autoScalerMax", "taints"],
         "additionalProperties": false,
         "properties": {
           "name": {
