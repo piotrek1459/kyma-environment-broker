@@ -834,7 +834,7 @@ func NewTaintsSchema(rejectUnsupportedParameters bool) *TaintsType {
 	t := &TaintsType{
 		Type: Type{
 			Type:        "array",
-			Description: "Specifies the taints for the worker node pool nodes. Taints allow a node to repel a set of Pods unless those Pods have matching tolerations.",
+			Description: "Specifies taints for the worker node pool. With the taints added, a node can repel sets of Pods with no matching tolerations.",
 		},
 		Items: TaintsItems{
 			ControlsOrder: []string{"key", "value", "effect"},
