@@ -595,24 +595,24 @@ func (a AdditionalWorkerNodePool) Validate() error {
 }
 
 func validateTaints(taints []TaintDTO, poolName string) error {
-	validEffects := map[TaintEffect]bool{
-		TaintEffectNoSchedule:       true,
-		TaintEffectPreferNoSchedule: true,
-		TaintEffectNoExecute:        true,
+	validEffects := map[TaintEffect]struct{}{
+		TaintEffectNoSchedule:       {},
+		TaintEffectPreferNoSchedule: {},
+		TaintEffectNoExecute:        {},
 	}
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	for _, t := range taints {
 		if t.Key == "" {
 			return fmt.Errorf("taint key must not be empty for %s additional worker node pool", poolName)
 		}
-		if !validEffects[t.Effect] {
+		if _, ok := validEffects[t.Effect]; !ok {
 			return fmt.Errorf("taint effect %q is not valid for %s additional worker node pool, valid effects are: NoSchedule, PreferNoSchedule, NoExecute", t.Effect, poolName)
 		}
 		pair := t.Key + "=" + string(t.Effect)
-		if seen[pair] {
+		if _, exists := seen[pair]; exists {
 			return fmt.Errorf("duplicate taint with key %q and effect %q for %s additional worker node pool", t.Key, t.Effect, poolName)
 		}
-		seen[pair] = true
+		seen[pair] = struct{}{}
 	}
 	return nil
 }

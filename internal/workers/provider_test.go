@@ -311,6 +311,52 @@ aws:
 	})
 }
 
+func TestToGardenerTaints(t *testing.T) {
+	t.Run("nil input returns nil", func(t *testing.T) {
+		result := toGardenerTaints(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("empty slice returns nil", func(t *testing.T) {
+		result := toGardenerTaints([]runtime.TaintDTO{})
+		assert.Nil(t, result)
+	})
+
+	t.Run("single taint is mapped correctly", func(t *testing.T) {
+		taints := []runtime.TaintDTO{
+			{Key: "dedicated", Value: "gpu", Effect: runtime.TaintEffectNoSchedule},
+		}
+		result := toGardenerTaints(taints)
+		assert.Equal(t, []corev1.Taint{
+			{Key: "dedicated", Value: "gpu", Effect: corev1.TaintEffectNoSchedule},
+		}, result)
+	})
+
+	t.Run("multiple taints are all mapped", func(t *testing.T) {
+		taints := []runtime.TaintDTO{
+			{Key: "k1", Value: "v1", Effect: runtime.TaintEffectNoSchedule},
+			{Key: "k2", Value: "v2", Effect: runtime.TaintEffectPreferNoSchedule},
+			{Key: "k3", Value: "", Effect: runtime.TaintEffectNoExecute},
+		}
+		result := toGardenerTaints(taints)
+		assert.Equal(t, []corev1.Taint{
+			{Key: "k1", Value: "v1", Effect: corev1.TaintEffectNoSchedule},
+			{Key: "k2", Value: "v2", Effect: corev1.TaintEffectPreferNoSchedule},
+			{Key: "k3", Value: "", Effect: corev1.TaintEffectNoExecute},
+		}, result)
+	})
+
+	t.Run("taint without value is mapped with empty value", func(t *testing.T) {
+		taints := []runtime.TaintDTO{
+			{Key: "special", Effect: runtime.TaintEffectNoExecute},
+		}
+		result := toGardenerTaints(taints)
+		assert.Equal(t, []corev1.Taint{
+			{Key: "special", Value: "", Effect: corev1.TaintEffectNoExecute},
+		}, result)
+	})
+}
+
 func newEmptyProviderSpec() *configuration.ProviderSpec {
 	spec, _ := configuration.NewProviderSpec(strings.NewReader(""))
 	return spec

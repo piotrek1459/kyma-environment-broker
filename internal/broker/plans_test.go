@@ -119,7 +119,6 @@ func validateSchema(t *testing.T, actual []byte, file string) {
 			t.Fail()
 		}
 	}
-
 	if !assert.JSONEq(t, prettyActual.String(), prettyExpected.String()) {
 		t.Errorf("%v Schema() = \n######### Actual ###########%v\n######### End Actual ########, expected \n##### Expected #####%v\n##### End Expected #####", file, prettyActual.String(), prettyExpected.String())
 	}

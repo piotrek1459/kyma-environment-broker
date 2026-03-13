@@ -41,7 +41,6 @@ go-lint-install: ## linter config in file at root of project -> '.golangci.yaml'
 test: ## run Go tests
 	GODEBUG=fips140=only,tlsmlkem=0 GOFIPS140=v1.0.0 go test ./...
 
-	
 ##@ Go checks 
 
 .PHONY: check-go-mod-tidy

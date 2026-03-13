@@ -990,10 +990,7 @@ func (s *BrokerSuiteTest) assertAdditionalWorkerTaints(t *testing.T, provider im
 		}
 	}
 	require.NotNil(t, worker)
-	assert.Len(t, worker.Taints, len(expectedTaints))
-	for i, expected := range expectedTaints {
-		assert.Equal(t, expected, worker.Taints[i])
-	}
+	assert.ElementsMatch(t, expectedTaints, worker.Taints)
 }
 
 func (s *BrokerSuiteTest) assertAdditionalWorkerZones(t *testing.T, provider imv1.Provider, name string, zonesNumber int, zones ...string) {
