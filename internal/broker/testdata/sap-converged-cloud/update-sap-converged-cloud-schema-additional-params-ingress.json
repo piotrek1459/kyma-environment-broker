@@ -16,49 +16,25 @@
   "properties": {
     "additionalWorkerNodePools": {
       "description": "Specifies the list of additional worker node pools.",
+      "type": "array",
+      "uniqueItems": true,
       "items": {
-        "_controlsOrder": [
-          "name",
-          "machineType",
-          "haZones",
-          "autoScalerMin",
-          "autoScalerMax",
-          "taints"
-        ],
+        "type": "object",
+        "required": ["name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"],
+        "_controlsOrder": ["name", "machineType", "haZones", "autoScalerMin", "autoScalerMax"],
         "additionalProperties": false,
         "properties": {
-          "autoScalerMax": {
-            "default": 20,
-            "description": "Specifies the maximum number of virtual machines to create.",
-            "maximum": 300,
-            "minimum": 1,
-            "type": "integer"
-          },
-          "autoScalerMin": {
-            "default": 3,
-            "description": "Specifies the minimum number of virtual machines to create.",
-            "maximum": 300,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "haZones": {
-            "default": true,
-            "description": "Specifies whether high availability (HA) zones are supported. This setting is permanent and cannot be changed later. If HA is disabled, all resources are placed in a single, randomly selected zone. Disabled HA allows setting autoScalerMin to 0 and autoScalerMax to 1, which helps reduce costs. It is not recommended for production environments. When enabled, resources are distributed across three zones to enhance fault tolerance. Enabled HA requires setting autoScalerMin to the minimal value 3.",
-            "title": "HA zones",
-            "type": "boolean"
+          "name": {
+            "description": "Specifies the unique name of the additional worker node pool. The name must consist of lowercase alphanumeric characters or '-', must start and end with an alphanumeric character, and can be a maximum of 15 characters in length. Do not use the name “cpu-worker-0” because it's reserved for the Kyma worker node pool.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 15,
+            "pattern": "^(?!cpu-worker-0$)[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
           "machineType": {
-            "_enumDisplayName": {
-              "g_c12_m48": "g_c12_m48 (12vCPU, 48GB RAM)",
-              "g_c16_m64": "g_c16_m64 (16vCPU, 64GB RAM)",
-              "g_c2_m8": "g_c2_m8 (2vCPU, 8GB RAM)",
-              "g_c32_m128": "g_c32_m128 (32vCPU, 128GB RAM)",
-              "g_c4_m16": "g_c4_m16 (4vCPU, 16GB RAM)",
-              "g_c64_m256": "g_c64_m256 (64vCPU, 256GB RAM)",
-              "g_c6_m24": "g_c6_m24 (6vCPU, 24GB RAM)",
-              "g_c8_m32": "g_c8_m32 (8vCPU, 32GB RAM)"
-            },
             "description": "Specifies the type of the virtual machine. The machine type marked with “*” has limited availability and generates high cost. This setting is permanent, and you cannot change it later. To use a different machine type, you must create a new worker node pool, migrate workloads to it, and decommission the old one.",
+            "type": "string",
+            "minLength": 1,
             "enum": [
               "g_c2_m8",
               "g_c4_m16",
@@ -69,70 +45,39 @@
               "g_c32_m128",
               "g_c64_m256"
             ],
-            "minLength": 1,
-            "type": "string"
+            "_enumDisplayName": {
+              "g_c2_m8":    "g_c2_m8 (2vCPU, 8GB RAM)",
+              "g_c4_m16":   "g_c4_m16 (4vCPU, 16GB RAM)",
+              "g_c6_m24":   "g_c6_m24 (6vCPU, 24GB RAM)",
+              "g_c8_m32":   "g_c8_m32 (8vCPU, 32GB RAM)",
+              "g_c12_m48":  "g_c12_m48 (12vCPU, 48GB RAM)",
+              "g_c16_m64":  "g_c16_m64 (16vCPU, 64GB RAM)",
+              "g_c32_m128": "g_c32_m128 (32vCPU, 128GB RAM)",
+              "g_c64_m256": "g_c64_m256 (64vCPU, 256GB RAM)"
+            }
           },
-          "name": {
-            "description": "Specifies the unique name of the additional worker node pool. The name must consist of lowercase alphanumeric characters or '-', must start and end with an alphanumeric character, and can be a maximum of 15 characters in length. Do not use the name “cpu-worker-0” because it's reserved for the Kyma worker node pool.",
-            "maxLength": 15,
-            "minLength": 1,
-            "pattern": "^(?!cpu-worker-0$)[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-            "type": "string"
+          "haZones": {
+            "description": "Specifies whether high availability (HA) zones are supported. This setting is permanent and cannot be changed later. If HA is disabled, all resources are placed in a single, randomly selected zone. Disabled HA allows setting autoScalerMin to 0 and autoScalerMax to 1, which helps reduce costs. It is not recommended for production environments. When enabled, resources are distributed across three zones to enhance fault tolerance. Enabled HA requires setting autoScalerMin to the minimal value 3.",
+            "title": "HA zones",
+            "type": "boolean",
+            "default": true
           },
-          "taints": {
-            "description": "Specifies the taints for the worker node pool nodes. Taints allow a node to repel a set of Pods unless those Pods have matching tolerations.",
-            "items": {
-              "_controlsOrder": [
-                "key",
-                "value",
-                "effect"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "effect": {
-                  "_enumDisplayName": {
-                    "NoExecute": "NoExecute",
-                    "NoSchedule": "NoSchedule",
-                    "PreferNoSchedule": "PreferNoSchedule"
-                  },
-                  "description": "Specifies the taint effect.",
-                  "enum": [
-                    "NoSchedule",
-                    "PreferNoSchedule",
-                    "NoExecute"
-                  ],
-                  "type": "string"
-                },
-                "key": {
-                  "description": "Specifies the taint key.",
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "value": {
-                  "description": "Specifies the taint value.",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "key",
-                "effect"
-              ],
-              "type": "object"
-            },
-            "type": "array"
+          "autoScalerMin": {
+            "description": "Specifies the minimum number of virtual machines to create.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 300,
+            "default": 3
+          },
+          "autoScalerMax": {
+            "description": "Specifies the maximum number of virtual machines to create.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 20
           }
-        },
-        "required": [
-          "name",
-          "machineType",
-          "haZones",
-          "autoScalerMin",
-          "autoScalerMax"
-        ],
-        "type": "object"
-      },
-      "type": "array",
-      "uniqueItems": true
+        }
+      }
     },
     "administrators": {
       "description": "Specifies the list of runtime administrators.",
@@ -162,14 +107,14 @@
     },
     "machineType": {
       "_enumDisplayName": {
-        "g_c12_m48": "g_c12_m48 (12vCPU, 48GB RAM)",
-        "g_c16_m64": "g_c16_m64 (16vCPU, 64GB RAM)",
-        "g_c2_m8": "g_c2_m8 (2vCPU, 8GB RAM)",
+        "g_c2_m8":    "g_c2_m8 (2vCPU, 8GB RAM)",
+        "g_c4_m16":   "g_c4_m16 (4vCPU, 16GB RAM)",
+        "g_c6_m24":   "g_c6_m24 (6vCPU, 24GB RAM)",
+        "g_c8_m32":   "g_c8_m32 (8vCPU, 32GB RAM)",
+        "g_c12_m48":  "g_c12_m48 (12vCPU, 48GB RAM)",
+        "g_c16_m64":  "g_c16_m64 (16vCPU, 64GB RAM)",
         "g_c32_m128": "g_c32_m128 (32vCPU, 128GB RAM)",
-        "g_c4_m16": "g_c4_m16 (4vCPU, 16GB RAM)",
-        "g_c64_m256": "g_c64_m256 (64vCPU, 256GB RAM)",
-        "g_c6_m24": "g_c6_m24 (6vCPU, 24GB RAM)",
-        "g_c8_m32": "g_c8_m32 (8vCPU, 32GB RAM)"
+        "g_c64_m256": "g_c64_m256 (64vCPU, 256GB RAM)"
       },
       "description": "Specifies the type of the virtual machine.",
       "enum": [
@@ -192,192 +137,192 @@
       "type": "string"
     },
     "oidc": {
-      "description": "OIDC configuration. The list-based configuration is recommended. The object-based configuration is provided for backward compatibility.",
-      "oneOf": [
-        {
-          "additionalProperties": false,
-          "description": "OIDC configuration list",
-          "properties": {
-            "list": {
-              "default": [
-                {
-                  "clientID": "",
-                  "encodedJwksArray": "",
-                  "groupsClaim": "",
-                  "groupsPrefix": "",
-                  "issuerURL": "",
-                  "requiredClaims": [],
-                  "signingAlgs": [],
-                  "usernameClaim": "",
-                  "usernamePrefix": ""
-                }
-              ],
-              "description": "Specifies the list of OIDC configurations. Besides the default OIDC configuration, you can add multiple custom OIDC configurations. Leave the list empty to not use any OIDC configuration. To use the default configuration values, see the documentation. To switch the OIDC configuration from a single oidc object to an oidc list, rewrite your values.",
-              "items": {
+        "description": "OIDC configuration. The list-based configuration is recommended. The object-based configuration is provided for backward compatibility.",
+        "oneOf": [
+            {
+                "additionalProperties": false,
+                "description": "OIDC configuration list",
+                "properties": {
+                    "list": {
+                        "default": [
+                            {
+                                "clientID": "",
+                                "encodedJwksArray": "",
+                                "groupsClaim": "",
+                                "groupsPrefix": "",
+                                "issuerURL": "",
+                                "requiredClaims": [],
+                                "signingAlgs": [],
+                                "usernameClaim": "",
+                                "usernamePrefix": ""
+                            }
+                        ],
+                        "description": "Specifies the list of OIDC configurations. Besides the default OIDC configuration, you can add multiple custom OIDC configurations. Leave the list empty to not use any OIDC configuration. To use the default configuration values, see the documentation. To switch the OIDC configuration from a single oidc object to an oidc list, rewrite your values.",
+                        "items": {
+                            "_controlsOrder": [
+                                "clientID",
+                                "groupsClaim",
+                                "issuerURL",
+                                "signingAlgs",
+                                "usernameClaim",
+                                "usernamePrefix",
+                                "groupsPrefix",
+                                "requiredClaims",
+                                "encodedJwksArray"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                                "clientID": {
+                                    "description": "The client ID for the OpenID Connect client.",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "encodedJwksArray": {
+                                    "description": "The JWKS array encoded in base64. Leave empty to not use it or to remove the previously set value.",
+                                    "type": "string"
+                                },
+                                "groupsClaim": {
+                                    "default": "",
+                                    "description": "If provided, the name of a custom OpenID Connect claim for specifying user groups.",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "groupsPrefix": {
+                                    "default": "",
+                                    "description": "If specified, causes claims mapping to group names to be prefixed with the current value. The 'oidc:' value results in groups like 'oidc:engineering' and 'oidc:marketing'. The value '-' (dash character without additional characters) can be used to disable all prefixing.",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "issuerURL": {
+                                    "description": "The URL of the OpenID issuer, only HTTPS scheme will be accepted.",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "requiredClaims": {
+                                    "description": "A list of key=value pairs that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value.",
+                                    "items": {
+                                        "pattern": "^[^=]+=[^=]+$",
+                                        "type": "string"
+                                    },
+                                    "type": "array"
+                                },
+                                "signingAlgs": {
+                                    "default": null,
+                                    "description": "A comma-separated list of allowed JOSE asymmetric signing algorithms, for example, RS256, ES256.",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "minItems": 1,
+                                    "type": "array"
+                                },
+                                "usernameClaim": {
+                                    "default": "",
+                                    "description": "The OpenID claim to use as the user name.",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "usernamePrefix": {
+                                    "default": "",
+                                    "description": "If provided, all usernames are prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-' (dash character without additional characters).",
+                                    "minLength": 1,
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "clientID",
+                                "issuerURL",
+                                "groupsClaim",
+                                "usernameClaim",
+                                "usernamePrefix",
+                                "signingAlgs",
+                                "groupsPrefix"
+                            ],
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "uniqueItems": true
+                    }
+                },
+                "title": "List",
+                "type": "object"
+            },
+            {
                 "_controlsOrder": [
-                  "clientID",
-                  "groupsClaim",
-                  "issuerURL",
-                  "signingAlgs",
-                  "usernameClaim",
-                  "usernamePrefix",
-                  "groupsPrefix",
-                  "requiredClaims",
-                  "encodedJwksArray"
+                    "clientID",
+                    "groupsClaim",
+                    "issuerURL",
+                    "signingAlgs",
+                    "usernameClaim",
+                    "usernamePrefix",
+                    "groupsPrefix",
+                    "requiredClaims",
+                    "encodedJwksArray"
                 ],
                 "additionalProperties": false,
+                "description": "Legacy OIDC configuration",
                 "properties": {
-                  "clientID": {
-                    "description": "The client ID for the OpenID Connect client.",
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "encodedJwksArray": {
-                    "description": "The JWKS array encoded in base64. Leave empty to not use it or to remove the previously set value.",
-                    "type": "string"
-                  },
-                  "groupsClaim": {
-                    "default": "",
-                    "description": "If provided, the name of a custom OpenID Connect claim for specifying user groups.",
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "groupsPrefix": {
-                    "default": "",
-                    "description": "If specified, causes claims mapping to group names to be prefixed with the current value. The 'oidc:' value results in groups like 'oidc:engineering' and 'oidc:marketing'. The value '-' (dash character without additional characters) can be used to disable all prefixing.",
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "issuerURL": {
-                    "description": "The URL of the OpenID issuer, only HTTPS scheme will be accepted.",
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "requiredClaims": {
-                    "description": "A list of key=value pairs that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value.",
-                    "items": {
-                      "pattern": "^[^=]+=[^=]+$",
-                      "type": "string"
+                    "clientID": {
+                        "description": "The client ID for the OpenID Connect client.",
+                        "readOnly": false,
+                        "type": "string"
                     },
-                    "type": "array"
-                  },
-                  "signingAlgs": {
-                    "default": null,
-                    "description": "A comma-separated list of allowed JOSE asymmetric signing algorithms, for example, RS256, ES256.",
-                    "items": {
-                      "type": "string"
+                    "encodedJwksArray": {
+                        "description": "The JWKS array encoded in base64. To remove the previously set value, enter the value '-' (dash character without additional characters).",
+                        "readOnly": false,
+                        "type": "string"
                     },
-                    "minItems": 1,
-                    "type": "array"
-                  },
-                  "usernameClaim": {
-                    "default": "",
-                    "description": "The OpenID claim to use as the user name.",
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "usernamePrefix": {
-                    "default": "",
-                    "description": "If provided, all usernames are prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-' (dash character without additional characters).",
-                    "minLength": 1,
-                    "type": "string"
-                  }
+                    "groupsClaim": {
+                        "description": "If provided, the name of a custom OpenID Connect claim for specifying user groups.",
+                        "readOnly": false,
+                        "type": "string"
+                    },
+                    "groupsPrefix": {
+                        "description": "If specified, causes claims mapping to group names to be prefixed with the current value. The 'oidc:' value results in groups like 'oidc:engineering' and 'oidc:marketing'. The value '-' (dash character without additional characters) can be used to disable all prefixing.",
+                        "readOnly": false,
+                        "type": "string"
+                    },
+                    "issuerURL": {
+                        "description": "The URL of the OpenID issuer, only HTTPS scheme will be accepted.",
+                        "readOnly": false,
+                        "type": "string"
+                    },
+                    "requiredClaims": {
+                        "description": "A list of key=value pairs that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value. To remove the previously set claims, use the value '-' (dash character without additional characters).",
+                        "items": {
+                            "pattern": "^([^=]+=[^=]+|-)$",
+                            "type": "string"
+                        },
+                        "readOnly": false,
+                        "type": "array"
+                    },
+                    "signingAlgs": {
+                        "description": "A comma-separated list of allowed JOSE asymmetric signing algorithms, for example, RS256, ES256.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": false,
+                        "type": "array"
+                    },
+                    "usernameClaim": {
+                        "description": "The OpenID claim to use as the user name.",
+                        "readOnly": false,
+                        "type": "string"
+                    },
+                    "usernamePrefix": {
+                        "description": "If provided, all usernames are prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-' (dash character without additional characters).",
+                        "readOnly": false,
+                        "type": "string"
+                    }
                 },
                 "required": [
-                  "clientID",
-                  "issuerURL",
-                  "groupsClaim",
-                  "usernameClaim",
-                  "usernamePrefix",
-                  "signingAlgs",
-                  "groupsPrefix"
+                    "clientID",
+                    "issuerURL"
                 ],
+                "title": "Object (not recommended)",
                 "type": "object"
-              },
-              "type": "array",
-              "uniqueItems": true
             }
-          },
-          "title": "List",
-          "type": "object"
-        },
-        {
-          "_controlsOrder": [
-            "clientID",
-            "groupsClaim",
-            "issuerURL",
-            "signingAlgs",
-            "usernameClaim",
-            "usernamePrefix",
-            "groupsPrefix",
-            "requiredClaims",
-            "encodedJwksArray"
-          ],
-          "additionalProperties": false,
-          "description": "Legacy OIDC configuration",
-          "properties": {
-            "clientID": {
-              "description": "The client ID for the OpenID Connect client.",
-              "readOnly": false,
-              "type": "string"
-            },
-            "encodedJwksArray": {
-              "description": "The JWKS array encoded in base64. To remove the previously set value, enter the value '-' (dash character without additional characters).",
-              "readOnly": false,
-              "type": "string"
-            },
-            "groupsClaim": {
-              "description": "If provided, the name of a custom OpenID Connect claim for specifying user groups.",
-              "readOnly": false,
-              "type": "string"
-            },
-            "groupsPrefix": {
-              "description": "If specified, causes claims mapping to group names to be prefixed with the current value. The 'oidc:' value results in groups like 'oidc:engineering' and 'oidc:marketing'. The value '-' (dash character without additional characters) can be used to disable all prefixing.",
-              "readOnly": false,
-              "type": "string"
-            },
-            "issuerURL": {
-              "description": "The URL of the OpenID issuer, only HTTPS scheme will be accepted.",
-              "readOnly": false,
-              "type": "string"
-            },
-            "requiredClaims": {
-              "description": "A list of key=value pairs that describes a required claim in the ID Token. If set, the claim is verified to be present in the ID Token with a matching value. To remove the previously set claims, use the value '-' (dash character without additional characters).",
-              "items": {
-                "pattern": "^([^=]+=[^=]+|-)$",
-                "type": "string"
-              },
-              "readOnly": false,
-              "type": "array"
-            },
-            "signingAlgs": {
-              "description": "A comma-separated list of allowed JOSE asymmetric signing algorithms, for example, RS256, ES256.",
-              "items": {
-                "type": "string"
-              },
-              "readOnly": false,
-              "type": "array"
-            },
-            "usernameClaim": {
-              "description": "The OpenID claim to use as the user name.",
-              "readOnly": false,
-              "type": "string"
-            },
-            "usernamePrefix": {
-              "description": "If provided, all usernames are prefixed with this value. If not provided, username claims other than 'email' are prefixed by the issuer URL to avoid clashes. To skip any prefixing, provide the value '-' (dash character without additional characters).",
-              "readOnly": false,
-              "type": "string"
-            }
-          },
-          "required": [
-            "clientID",
-            "issuerURL"
-          ],
-          "title": "Object (not recommended)",
-          "type": "object"
-        }
-      ],
-      "type": "object"
+        ],
+        "type": "object"
     }
   },
   "type": "object"

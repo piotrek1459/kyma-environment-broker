@@ -41,10 +41,7 @@ go-lint-install: ## linter config in file at root of project -> '.golangci.yaml'
 test: ## run Go tests
 	GODEBUG=fips140=only,tlsmlkem=0 GOFIPS140=v1.0.0 go test ./...
 
-.PHONY: update-schema-testdata
-update-schema-testdata: ## regenerate golden schema testdata files
-	go test ./internal/broker/ -run TestSchemaService -update -count=1
-
+	
 ##@ Go checks 
 
 .PHONY: check-go-mod-tidy
