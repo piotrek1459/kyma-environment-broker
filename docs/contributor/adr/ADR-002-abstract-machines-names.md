@@ -496,24 +496,24 @@ This allows instance generations or families to be changed by updating only the 
   providersConfiguration:
     aws:
       machines:
-        general-2: general-2 (2vCPU, 8GB RAM)
-        general-64: general-64 (64vCPU, 256GB RAM)
-        general-prev-2: general-prev-2 (2vCPU, 8GB RAM)
-        general-prev-64: general-prev-64 (64vCPU, 256GB RAM)
-        compute-2: compute-2 (2vCPU, 4GB RAM)
-        compute-64: compute-64 (64vCPU, 128GB RAM)
-        gpu-4: gpu-4 (1GPU, 4vCPU, 16GB RAM)*
-        gpu-64: gpu-64 (1GPU, 64vCPU, 256GB RAM)*
-        gpu-legacy-4: gpu-legacy-4 (1GPU, 4vCPU, 16GB RAM)*
-        gpu-legacy-64: gpu-legacy-64 (1GPU, 64vCPU, 256GB RAM)*
+        general-2: m6i.large/mi.large (2vCPU, 8GB RAM)
+        general-64: m6i.16xlarge/mi.16xlarge (64vCPU, 256GB RAM)
+        general-prev-2: m5.large/m.large (2vCPU, 8GB RAM)
+        general-prev-64: m5.16xlarge/m.16xlarge (64vCPU, 256GB RAM)
+        compute-2: c7i.large/ci.large (2vCPU, 4GB RAM)
+        compute-64: c7i.16xlarge/ci.16xlarge (64vCPU, 128GB RAM)
+        gpu-4: g6.xlarge/g.xlarge (1GPU, 4vCPU, 16GB RAM)*
+        gpu-64: g6.16xlarge/g.16xlarge (1GPU, 64vCPU, 256GB RAM)*
+        gpu-legacy-4: g4dn.xlarge/gdn.xlarge (1GPU, 4vCPU, 16GB RAM)*
+        gpu-legacy-64: g4dn.16xlarge/gdn.16xlarge (1GPU, 64vCPU, 256GB RAM)*
   
         # New memory-intensive machine types
-        memory-2: memory-2 (2vCPU, 16GB RAM)
-        memory-64: memory-64 (64vCPU, 512GB RAM)
+        memory-2: r7i.large/ri.large (2vCPU, 16GB RAM)
+        memory-64: r7i.16xlarge/ri.16xlarge (64vCPU, 512GB RAM)
   
         # New storage-intensive machine types
-        storage-2: storage-2 (2vCPU, 16GB RAM)
-        storage-64: storage-64 (64vCPU, 512GB RAM)
+        storage-2: i7i.large/ii.large (2vCPU, 16GB RAM)
+        storage-64: i7i.16xlarge/ii.16xlarge (64vCPU, 512GB RAM)
   
       machinesMapping:
         general-2: m6i.large
@@ -655,12 +655,12 @@ This approach completely decouples the logical machine definition from the insta
 
 ### Comparison
 
-| Aspect           | Version Agnostic Configuration                                                                                                     | Family Agnostic Configuration                                                                                                                                                       |
-|------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Flexibility      | Only the machine **version** should be updated; switching to a completely different machine type can make the configuration messy. | The **name is fully abstract**, allowing seamless switching to a completely different machine type.                                                                                 |
-| Logic Complexity | Straightforward logic that is **consistent across all providers**.                                                                 | Straightforward logic that is **consistent across all providers**.                                                                                                                  |
-| Potential Issues | None identified.                                                                                                                   | Creating a consistent naming scheme will be challenging if not impossible.<br>**AWS:** Multiple general-purpose and GPU instance types<br>**Azure:** Multiple general machine types |
-
+| Aspect                              | Version Agnostic Configuration                                                                                                      | Family Agnostic Configuration                                                                                                                                                                                                                                                               |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Flexibility                         | Only the machine **version** should be updated; switching to a completely different machine type can make the configuration messy.  | The **name is fully abstract**, allowing seamless switching to a completely different machine type.                                                                                                                                                                                         |
+| Naming                              | The machine type parameter and display name in BTP Cockpit are more meaningful to the user, for example `g.xlarge` or `gdn.xlarge`. | Creating a consistent naming scheme will be challenging. Machine type parameters can be named like `gpu-1`, `gpu-2`, `gpu-3`, etc. The display name in BTP Cockpit can use real machine names like `g6.xlarge` or `g4dn.xlarge`, or version-agnostic names like `g.xlarge` or `gdn.xlarge`. |
+| Changing to different machine type  | The user can send `mi.large`, but if the configuration is set to some other machine type, this may be confusing to the user.        | As names are fully abstract, we can change to a totally different machine type without creating confusion.                                                                                                                                                                                  |
+| Hyperscaler deprecates machine type | A deprecation notice must be sent, or the machine type can point to a different machine, which may create confusion.                | It can be easily changed to a different machine type in the configuration.                                                                                                                                                                                                                  |
 
 ### JSON Schema
 
