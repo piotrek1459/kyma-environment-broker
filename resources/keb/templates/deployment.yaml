@@ -136,6 +136,8 @@ spec:
               value: "{{ .Values.broker.freeExpirationPeriod }}"
             - name: APP_BROKER_GARDENER_SEEDS_CACHE_CONFIG_MAP_NAME
               value: "{{ .Values.broker.gardenerSeedsCache }}"
+            - name: APP_BROKER_GVISOR_ENABLED
+              value: "{{ .Values.broker.gvisorEnabled }}"
             - name: APP_BROKER_MONITOR_ADDITIONAL_PROPERTIES
               value: "{{ .Values.broker.monitorAdditionalProperties }}"
             - name: APP_BROKER_ONLY_ONE_FREE_PER_GA
@@ -222,6 +224,8 @@ spec:
               value: {{ .Values.gardener.project }}
             - name: APP_GARDENER_SHOOT_DOMAIN
               value: "{{ .Values.gardener.shootDomain }}"
+            - name: APP_GVISOR_WHITELISTED_GLOBAL_ACCOUNTS_FILE_PATH
+              value: {{ .Values.configPaths.gvisorWhitelistedGlobalAccountIds }}
             - name: APP_HAP_MULTI_HYPERSCALER_ACCOUNT_ALLOWED_GLOBAL_ACCOUNTS
               value: "{{ join "," .Values.hap.multiHyperscalerAccount.allowedGlobalAccounts }}"
             - name: APP_HAP_MULTI_HYPERSCALER_ACCOUNT_LIMITS_ALICLOUD
