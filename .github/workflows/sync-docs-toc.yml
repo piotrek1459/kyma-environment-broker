@@ -19,21 +19,20 @@ on:
     branches: [main]
     paths:
       - 'docs/**/*.md'
-  pull_request_target:
-    types: [labeled]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: "Base commit SHA to diff against (leave empty to use HEAD~1)"
+        required: false
+        default: ''
 
 jobs:
   sync-toc:
     # For push: runs automatically when doc files change.
-    # For pull_request_target: runs when 'sync-docs' label is added.
-    #   Uses pull_request_target (not pull_request) so secrets are available
-    #   even when the PR comes from a fork. The workflow code always runs from
-    #   main (base branch) – never from the fork – so it is safe.
+    # For workflow_dispatch: manual trigger for testing on any branch.
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request_target' &&
-       github.event.label.name == 'sync-docs')
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,18 +51,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch PR commits
-        if: github.event_name == 'pull_request_target'
-        run: git fetch origin refs/pull/${{ github.event.pull_request.number }}/head
-
       - name: Detect structural changes in docs/
         id: detect
         run: |
-          # For pull_request_target use PR base/head SHAs,
-          # for push use HEAD~1 (previous commit on main).
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          # For push: diff the entire push (all commits, any merge strategy).
+          # For workflow_dispatch: use provided base_sha or fall back to HEAD~1.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.base_sha }}" ]; then
+            BASE_SHA="${{ inputs.base_sha }}"
+            HEAD_SHA="HEAD"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
           else
             BASE_SHA="HEAD~1"
             HEAD_SHA="HEAD"
