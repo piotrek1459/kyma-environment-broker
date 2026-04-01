@@ -427,20 +427,12 @@ func (b *UpdateEndpoint) validateOIDC(params internal.UpdatingParametersDTO, ins
 }
 
 func (b *UpdateEndpoint) validateGvisorAccess(params internal.UpdatingParametersDTO, globalAccountID string) error {
-	if err := b.validateGvisorWhitelist(params.Gvisor, globalAccountID); err != nil {
-		return apiresponses.NewFailureResponse(err, http.StatusBadRequest, err.Error())
-	}
+	enabled := gvisorToBool(params.Gvisor)
 	for _, pool := range params.AdditionalWorkerNodePools {
-		if err := b.validateGvisorWhitelist(pool.Gvisor, globalAccountID); err != nil {
-			return apiresponses.NewFailureResponse(err, http.StatusBadRequest, err.Error())
-		}
+		enabled = enabled || gvisorToBool(pool.Gvisor)
 	}
-	return nil
-}
-
-func (b *UpdateEndpoint) validateGvisorWhitelist(gvisor *pkg.GvisorDTO, globalAccountID string) error {
-	if gvisor != nil && gvisor.Enabled && whitelist.IsNotWhitelisted(globalAccountID, b.gvisorWhitelist) {
-		return errors.New(GvisorNotAvailableForAccountMsg)
+	if enabled && whitelist.IsNotWhitelisted(globalAccountID, b.gvisorWhitelist) {
+		return apiresponses.NewFailureResponse(errors.New(GvisorNotAvailableForAccountMsg), http.StatusBadRequest, GvisorNotAvailableForAccountMsg)
 	}
 	return nil
 }
