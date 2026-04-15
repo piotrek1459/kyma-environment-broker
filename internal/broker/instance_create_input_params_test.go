@@ -8,7 +8,6 @@ import (
 
 	"github.com/kyma-project/kyma-environment-broker/common/gardener"
 	"github.com/kyma-project/kyma-environment-broker/common/hyperscaler/rules"
-	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/config"
 	"github.com/kyma-project/kyma-environment-broker/internal/dashboard"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
@@ -21,27 +20,26 @@ import (
 )
 
 type fakeProvisionEndpointBuilder struct {
-	brokerConfig                         Config
-	gardenerConfig                       gardener.Config
-	imConfig                             InfrastructureManager
-	db                                   storage.BrokerStorage
-	queue                                Queue
-	plansConfig                          PlansConfig
-	log                                  *slog.Logger
-	dashboardConfig                      dashboard.Config
-	kcBuilder                            kubeconfig.KcBuilder
-	freemiumWhitelist                    whitelist.Set
-	gvisorWhitelist                      whitelist.Set
-	schemaService                        *SchemaService
-	providerSpec                         ConfigurationProvider
-	valuesProvider                       ValuesProvider
-	providerConfigProvider               config.ConfigMapConfigProvider
-	quotaClient                          QuotaClient
-	quotaWhitelist                       whitelist.Set
-	rulesService                         *rules.RulesService
-	gardenerClient                       *gardener.Client
-	awsClientFactory                     aws.ClientFactory
-	btpRegionsMigrationSapConvergedCloud map[string]string
+	brokerConfig           Config
+	gardenerConfig         gardener.Config
+	imConfig               InfrastructureManager
+	db                     storage.BrokerStorage
+	queue                  Queue
+	plansConfig            PlansConfig
+	log                    *slog.Logger
+	dashboardConfig        dashboard.Config
+	kcBuilder              kubeconfig.KcBuilder
+	freemiumWhitelist      whitelist.Set
+	gvisorWhitelist        whitelist.Set
+	schemaService          *SchemaService
+	providerSpec           ConfigurationProvider
+	valuesProvider         ValuesProvider
+	providerConfigProvider config.ConfigMapConfigProvider
+	quotaClient            QuotaClient
+	quotaWhitelist         whitelist.Set
+	rulesService           *rules.RulesService
+	gardenerClient         *gardener.Client
+	awsClientFactory       aws.ClientFactory
 }
 
 func NewFakeProvisionEndpointBuilder() *fakeProvisionEndpointBuilder {
@@ -148,11 +146,6 @@ func (b *fakeProvisionEndpointBuilder) WithAwsClientFactory(factory aws.ClientFa
 	return b
 }
 
-func (b *fakeProvisionEndpointBuilder) WithBtpRegionsMigrationSapConvergedCloud(m map[string]string) *fakeProvisionEndpointBuilder {
-	b.btpRegionsMigrationSapConvergedCloud = m
-	return b
-}
-
 func (b *fakeProvisionEndpointBuilder) Build() *ProvisionEndpoint {
 	return NewProvision(
 		b.brokerConfig,
@@ -175,7 +168,6 @@ func (b *fakeProvisionEndpointBuilder) Build() *ProvisionEndpoint {
 		b.rulesService,
 		b.gardenerClient,
 		b.awsClientFactory,
-		b.btpRegionsMigrationSapConvergedCloud,
 	)
 }
 
@@ -329,67 +321,5 @@ func TestGvisorProvisioningParameters(t *testing.T) {
 		require.Len(t, parameters.AdditionalWorkerNodePools, 1)
 		require.NotNil(t, parameters.AdditionalWorkerNodePools[0].Gvisor)
 		assert.True(t, parameters.AdditionalWorkerNodePools[0].Gvisor.Enabled)
-	})
-}
-
-func TestGvisorWhitelist_Provision(t *testing.T) {
-	const allowedGA = "allowed-global-account-id"
-	const otherGA = "other-global-account-id"
-	gvisorEnabled := &pkg.GvisorDTO{Enabled: true}
-	gvisorDisabled := &pkg.GvisorDTO{Enabled: false}
-
-	t.Run("should allow when gvisor is disabled and whitelist is empty (default)", func(t *testing.T) {
-		// given
-		endpoint := &ProvisionEndpoint{gvisorWhitelist: whitelist.Set{}}
-
-		// when
-		err := endpoint.validateGvisorWhitelist(gvisorDisabled, otherGA)
-
-		// then
-		require.NoError(t, err)
-	})
-
-	t.Run("should allow when gvisor is disabled and global account is not in whitelist", func(t *testing.T) {
-		// given
-		endpoint := &ProvisionEndpoint{gvisorWhitelist: whitelist.Set{allowedGA: {}}}
-
-		// when
-		err := endpoint.validateGvisorWhitelist(gvisorDisabled, otherGA)
-
-		// then
-		require.NoError(t, err)
-	})
-
-	t.Run("should reject when gvisor is enabled and global account is not in whitelist", func(t *testing.T) {
-		// given
-		endpoint := &ProvisionEndpoint{gvisorWhitelist: whitelist.Set{allowedGA: {}}}
-
-		// when
-		err := endpoint.validateGvisorWhitelist(gvisorEnabled, otherGA)
-
-		// then
-		require.Error(t, err)
-	})
-
-	t.Run("should allow when gvisor is enabled and global account is in whitelist", func(t *testing.T) {
-		// given
-		endpoint := &ProvisionEndpoint{gvisorWhitelist: whitelist.Set{allowedGA: {}}}
-
-		// when
-		err := endpoint.validateGvisorWhitelist(gvisorEnabled, allowedGA)
-
-		// then
-		require.NoError(t, err)
-	})
-
-	t.Run("should reject when gvisor is enabled and whitelist is empty", func(t *testing.T) {
-		// given
-		endpoint := &ProvisionEndpoint{gvisorWhitelist: whitelist.Set{}}
-
-		// when
-		err := endpoint.validateGvisorWhitelist(gvisorEnabled, allowedGA)
-
-		// then
-		require.Error(t, err)
 	})
 }

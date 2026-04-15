@@ -2193,6 +2193,12 @@ func TestGPUMachinesForExternalCustomer(t *testing.T) {
 			additionalWorkerNodePools: `[{"name": "name-1", "machineType": "Standard_NC4as_T4_v3", "haZones": true, "autoScalerMin": 3, "autoScalerMax": 20}, {"name": "name-2", "machineType": "Standard_NC4as_T4_v3", "haZones": true, "autoScalerMin": 3, "autoScalerMax": 20}]`,
 			expectedError:             "The following GPU machine types: Standard_NC4as_T4_v3 (used in worker node pools: name-1, name-2) are not available for your account. For details, please contact your sales representative.",
 		},
+		{
+			name:                      "Version Agnostic GPU machine type",
+			planID:                    broker.AzurePlanID,
+			additionalWorkerNodePools: `[{"name": "name-1", "machineType": "Standard_NC4as_T4", "haZones": true, "autoScalerMin": 3, "autoScalerMax": 20}]`,
+			expectedError:             "The following GPU machine types: Standard_NC4as_T4 (used in worker node pools: name-1) are not available for your account. For details, please contact your sales representative.",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -3196,118 +3202,6 @@ func TestClusterName(t *testing.T) {
 	}
 }
 
-func TestBtpRegionsMigrationSapConvergedCloud_DeprecatedRegion(t *testing.T) {
-	// given
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-
-	memoryStorage := storage.NewMemoryStorage()
-
-	queue := &automock.Queue{}
-	queue.On("Add", mock.AnythingOfType("string"))
-
-	factoryBuilder := &automock.PlanValidator{}
-	factoryBuilder.On("IsPlanSupport", broker.AWSPlanID).Return(true)
-
-	kcBuilder := &kcMock.KcBuilder{}
-	kcBuilder.On("GetServerURL", "").Return("", fmt.Errorf("error"))
-
-	provisionEndpoint := broker.NewFakeProvisionEndpointBuilder().
-		WithConfig(broker.Config{
-			EnablePlans:          []string{"sap-converged-cloud"},
-			URL:                  brokerURL,
-			OnlySingleTrialPerGA: true}).
-		WithGardenerConfig(gardener.Config{
-			Project:      "test",
-			ShootDomain:  "example.com",
-			DNSProviders: fixDNSProviders()}).
-		WithInfrastructureManager(imConfigFixture).
-		WithStorage(memoryStorage).
-		WithQueue(queue).
-		WithLogger(log).
-		WithDashboardConfig(dashboardConfig).
-		WithKubeconfigBuilder(kcBuilder).
-		WithFreemiumWhitelist(whitelist.Set{}).
-		WithSchemaService(newSchemaService(t)).
-		WithConfigurationProvider(newProviderSpec(t)).
-		WithValuesProvider(fixValueProvider(t)).
-		WithConfigMapConfigProvider(config.FakeProviderConfigProvider{}).
-		WithBtpRegionsMigrationSapConvergedCloud(map[string]string{"cf-eu10": "cf-eu01"}).
-		Build()
-
-	// when
-	_, err := provisionEndpoint.Provision(
-		fixRequestContext(t, "cf-eu10"),
-		instanceID,
-		domain.ProvisionDetails{
-			ServiceID:     serviceID,
-			PlanID:        broker.SapConvergedCloudPlanID,
-			RawParameters: json.RawMessage(`{"name": "testing-name", "region": "eu-de-2"}`),
-			RawContext:    json.RawMessage(fmt.Sprintf(`{"globalaccount_id": "%s", "subaccount_id": "%s", "user_id": "%s"}`, "any-global-account-id", subAccountID, "Test@Test.pl")),
-		},
-		true,
-	)
-
-	assert.EqualError(t, err, "Cluster provisioning in the eu-de-2 region is no longer supported under cf-eu10. Please use the cf-eu01 BTP region.")
-}
-
-func TestBtpRegionsMigrationSapConvergedCloud_NewRegion(t *testing.T) {
-	// given
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-
-	memoryStorage := storage.NewMemoryStorage()
-
-	queue := &automock.Queue{}
-	queue.On("Add", mock.AnythingOfType("string"))
-
-	factoryBuilder := &automock.PlanValidator{}
-	factoryBuilder.On("IsPlanSupport", broker.AWSPlanID).Return(true)
-
-	kcBuilder := &kcMock.KcBuilder{}
-	kcBuilder.On("GetServerURL", "").Return("", fmt.Errorf("error"))
-
-	provisionEndpoint := broker.NewFakeProvisionEndpointBuilder().
-		WithConfig(broker.Config{
-			EnablePlans:          []string{"sap-converged-cloud"},
-			URL:                  brokerURL,
-			OnlySingleTrialPerGA: true}).
-		WithGardenerConfig(gardener.Config{
-			Project:      "test",
-			ShootDomain:  "example.com",
-			DNSProviders: fixDNSProviders()}).
-		WithInfrastructureManager(imConfigFixture).
-		WithStorage(memoryStorage).
-		WithQueue(queue).
-		WithLogger(log).
-		WithDashboardConfig(dashboardConfig).
-		WithKubeconfigBuilder(kcBuilder).
-		WithFreemiumWhitelist(whitelist.Set{}).
-		WithSchemaService(newSchemaService(t)).
-		WithConfigurationProvider(newProviderSpec(t)).
-		WithValuesProvider(fixValueProvider(t)).
-		WithConfigMapConfigProvider(config.FakeProviderConfigProvider{}).
-		WithBtpRegionsMigrationSapConvergedCloud(map[string]string{"cf-eu10": "cf-eu01"}).
-		Build()
-
-	// when
-	_, err := provisionEndpoint.Provision(
-		fixRequestContext(t, "cf-eu01"),
-		instanceID,
-		domain.ProvisionDetails{
-			ServiceID:     serviceID,
-			PlanID:        broker.SapConvergedCloudPlanID,
-			RawParameters: json.RawMessage(`{"name": "testing-name", "region": "eu-de-2"}`),
-			RawContext:    json.RawMessage(fmt.Sprintf(`{"globalaccount_id": "%s", "subaccount_id": "%s", "user_id": "%s"}`, "any-global-account-id", subAccountID, "Test@Test.pl")),
-		},
-		true,
-	)
-
-	assert.NoError(t, err)
-}
-
 func TestGvisorProvisioning(t *testing.T) {
 	const awsRegion = "eu-central-1"
 	const awsMachineType = "m6i.large"
@@ -3519,11 +3413,6 @@ func newProviderSpec(t *testing.T) *configuration.ProviderSpec {
 func newPlanSpec(t *testing.T) *configuration.PlanSpecifications {
 	spec, err := configuration.NewPlanSpecificationsFromFile("testdata/plans.yaml")
 	require.NoError(t, err)
-	return spec
-}
-
-func newEmptyProviderSpec() *configuration.ProviderSpec {
-	spec, _ := configuration.NewProviderSpec(strings.NewReader(""))
 	return spec
 }
 

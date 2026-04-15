@@ -1,3 +1,5 @@
+<!--{"metadata":{"publish":true}}-->
+
 ## Kyma Environment Broker Configuration
 
 Kyma Environment Broker (KEB) binary allows you to override some configuration parameters. You can specify the following environment variables:
@@ -35,7 +37,6 @@ Kyma Environment Broker (KEB) binary allows you to override some configuration p
 | **APP_BROKER_TRIAL_&#x200b;DOCS_URL** | <code>https://help.sap.com/docs/</code> | URL to the documentation for trial Kyma runtimes. Used in API responses and UI labels. |
 | **APP_BROKER_UPDATE_&#x200b;CUSTOM_RESOURCES_&#x200b;LABELS_ON_ACCOUNT_&#x200b;MOVE** | <code>false</code> | If true, updates runtimeCR labels when moving subaccounts. |
 | **APP_BROKER_URL** | <code>kyma-env-broker.localhost</code> | - |
-| **APP_BTP_REGIONS_&#x200b;MIGRATION_SAP_&#x200b;CONVERGED_CLOUD_&#x200b;FILE_PATH** | <code>/config/btpRegionsMigrationSapConvergedCloud.yaml</code> | Path to the mapping of deprecated BTP regions to their corresponding replacement regions in SAP Cloud Infrastructure. |
 | **APP_CATALOG_FILE_&#x200b;PATH** | <code>/config/catalog.yaml</code> | Path to the service catalog configuration file. |
 | **APP_DATABASE_HOST** | None | Specifies the host of the database. |
 | **APP_DATABASE_NAME** | None | Specifies the name of the database. |
@@ -85,6 +86,7 @@ Kyma Environment Broker (KEB) binary allows you to override some configuration p
 | **APP_METRICS_&#x200b;OPERATION_RESULT_&#x200b;POLLING_INTERVAL** | <code>1m</code> | Frequency of polling for operation results. |
 | **APP_METRICS_&#x200b;OPERATION_RESULT_&#x200b;RETENTION_PERIOD** | <code>1h</code> | Duration of retaining operation results. |
 | **APP_METRICS_&#x200b;OPERATION_STATS_&#x200b;POLLING_INTERVAL** | <code>1m</code> | Frequency of polling for operation statistics. |
+| **APP_OPEN_SHELL_&#x200b;WHITELISTED_GLOBAL_&#x200b;ACCOUNTS_FILE_PATH** | <code>/config/openShellWhitelistedGlobalAccountIds.yaml</code> | Path to the list of global account IDs that are allowed to use Open Shell. |
 | **APP_PLANS_&#x200b;CONFIGURATION_FILE_&#x200b;PATH** | <code>/config/plansConfig.yaml</code> | Path to the plans configuration file, which defines available service plans. |
 | **APP_PROFILER_MEMORY** | <code>false</code> | Enables memory profiler (true/false). |
 | **APP_PROVIDERS_&#x200b;CONFIGURATION_FILE_&#x200b;PATH** | <code>/config/providersConfig.yaml</code> | Path to the providers configuration file, which defines hyperscaler/provider settings. |
@@ -97,7 +99,6 @@ Kyma Environment Broker (KEB) binary allows you to override some configuration p
 | **APP_QUOTA_RETRIES** | <code>5</code> | The number of retry attempts made when the Entitlements API request fails. |
 | **APP_QUOTA_SERVICE_&#x200b;URL** | <code>TBD</code> | The base URL of the CIS Entitlements API endpoint, used for fetching quota assignments. |
 | **APP_QUOTA_&#x200b;WHITELISTED_&#x200b;SUBACCOUNTS_FILE_&#x200b;PATH** | <code>/config/quotaWhitelistedSubaccountIds.yaml</code> | Path to the list of subaccount IDs that are allowed to bypass quota restrictions. |
-| **APP_REGIONS_&#x200b;SUPPORTING_MACHINE_&#x200b;FILE_PATH** | <code>/config/regionsSupportingMachine.yaml</code> | Path to the list of regions that support machine-type selection. |
 | **APP_RUNTIME_&#x200b;CONFIGURATION_&#x200b;CONFIG_MAP_NAME** | None | Name of the ConfigMap with the default KymaCR template. |
 | **APP_SKR_DNS_&#x200b;PROVIDERS_VALUES_&#x200b;YAML_FILE_PATH** | <code>/config/skrDNSProvidersValues.yaml</code> | Path to the DNS providers values. |
 | **APP_SKR_OIDC_&#x200b;DEFAULT_VALUES_YAML_&#x200b;FILE_PATH** | <code>/config/skrOIDCDefaultValues.yaml</code> | Path to the default OIDC values. |
