@@ -25,8 +25,12 @@ on:
   workflow_dispatch:
     inputs:
       keb_version:
-        description: "KEB version tag to use as HEAD (e.g. 1.29.0)"
+        description: "KEB version tag for chart lookup (e.g. 1.29.0) — required"
         required: true
+      base_sha:
+        description: "Base SHA to diff against HEAD (for branch testing). Leave empty to diff real tags."
+        required: false
+        default: ''
 
 jobs:
   sync-toc:
@@ -45,9 +49,9 @@ jobs:
 
       - name: Validate required variables
         run: |
-          [ -z "${{ vars.GIT_USER_EMAIL }}" ]      && echo "GIT_USER_EMAIL is required"      && exit 1
-          [ -z "${{ vars.GIT_USER_NAME }}" ]       && echo "GIT_USER_NAME is required"       && exit 1
-          [ -z "${{ vars.GH_TOOLS_HOST }}" ]       && echo "GH_TOOLS_HOST is required"       && exit 1
+          [ -z "${{ vars.GIT_USER_EMAIL }}" ]       && echo "GIT_USER_EMAIL is required"       && exit 1
+          [ -z "${{ vars.GIT_USER_NAME }}" ]        && echo "GIT_USER_NAME is required"        && exit 1
+          [ -z "${{ vars.GH_TOOLS_HOST }}" ]        && echo "GH_TOOLS_HOST is required"        && exit 1
           [ -z "${{ vars.PK_RUNTIME_REPO_NAME }}" ] && echo "PK_RUNTIME_REPO_NAME is required" && exit 1
           echo "Validated"
 
@@ -57,49 +61,63 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
-      - name: Resolve KEB versions
+      - name: Resolve diff range
         id: versions
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            CURRENT_TAG="${{ inputs.keb_version }}"
+            KEB_TAG="${{ inputs.keb_version }}"
+            if [ -n "${{ inputs.base_sha }}" ]; then
+              # Branch testing mode: diff base_sha..HEAD, use keb_version for chart lookup only
+              echo "PREV_SHA=${{ inputs.base_sha }}" >> "$GITHUB_OUTPUT"
+              echo "CURRENT_SHA=HEAD"                >> "$GITHUB_OUTPUT"
+              echo "KEB_TAG=${KEB_TAG}"              >> "$GITHUB_OUTPUT"
+              echo "Branch test mode: ${{ inputs.base_sha }}..HEAD  chart lookup: ${KEB_TAG}"
+            else
+              # Pure tag mode: diff two real KEB tags
+              PREV_TAG=$(git describe --tags --abbrev=0 "${KEB_TAG}^")
+              echo "PREV_SHA=${PREV_TAG}"   >> "$GITHUB_OUTPUT"
+              echo "CURRENT_SHA=${KEB_TAG}" >> "$GITHUB_OUTPUT"
+              echo "KEB_TAG=${KEB_TAG}"     >> "$GITHUB_OUTPUT"
+              echo "Tag mode: ${PREV_TAG}..${KEB_TAG}"
+            fi
           else
+            # workflow_run mode: resolve tag from head_sha
             CURRENT_TAG=$(git describe --tags --exact-match "${{ github.event.workflow_run.head_sha }}" 2>/dev/null || true)
             if [ -z "$CURRENT_TAG" ]; then
               echo "No exact tag found on head_sha – nothing to sync."
               exit 0
             fi
+            PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^")
+            echo "PREV_SHA=${PREV_TAG}"       >> "$GITHUB_OUTPUT"
+            echo "CURRENT_SHA=${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
+            echo "KEB_TAG=${CURRENT_TAG}"     >> "$GITHUB_OUTPUT"
+            echo "Tag mode: ${PREV_TAG}..${CURRENT_TAG}"
           fi
-
-          PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^")
-
-          echo "CURRENT_TAG=${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
-          echo "PREV_TAG=${PREV_TAG}"       >> "$GITHUB_OUTPUT"
-          echo "Current: ${CURRENT_TAG}  Previous: ${PREV_TAG}"
 
       - name: Detect structural changes in docs/
         id: detect
         run: |
-          CURRENT_TAG="${{ steps.versions.outputs.CURRENT_TAG }}"
-          PREV_TAG="${{ steps.versions.outputs.PREV_TAG }}"
+          PREV="${{ steps.versions.outputs.PREV_SHA }}"
+          CURRENT="${{ steps.versions.outputs.CURRENT_SHA }}"
 
           # Added files with publish:true
-          git diff --diff-filter=A --name-only "${PREV_TAG}" "${CURRENT_TAG}" -- 'docs/**/*.md' \
+          git diff --diff-filter=A --name-only "${PREV}" "${CURRENT}" -- 'docs/**/*.md' \
             | grep -v '^docs/assets/' \
             | while IFS= read -r f; do
-                git show "${CURRENT_TAG}:${f}" 2>/dev/null \
+                git show "${CURRENT}:${f}" 2>/dev/null \
                   | head -3 \
                   | grep -q '<!--{"metadata":{"publish":true}}-->' \
                   && echo "$f"
               done > /tmp/added_files.txt || true
 
           # Renamed files where at least one end has publish:true
-          git diff -M --diff-filter=R --name-status "${PREV_TAG}" "${CURRENT_TAG}" -- 'docs/**/*.md' \
+          git diff -M --diff-filter=R --name-status "${PREV}" "${CURRENT}" -- 'docs/**/*.md' \
             | grep -v 'docs/assets/' \
             | while IFS= read -r line; do
                 old=$(echo "$line" | awk '{print $2}')
                 new=$(echo "$line" | awk '{print $3}')
-                old_pub=$(git show "${PREV_TAG}:${old}" 2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
-                new_pub=$(git show "${CURRENT_TAG}:${new}" 2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
+                old_pub=$(git show "${PREV}:${old}"    2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
+                new_pub=$(git show "${CURRENT}:${new}" 2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
                 [ "$old_pub" -gt 0 ] || [ "$new_pub" -gt 0 ] && echo "$line"
               done > /tmp/renamed_files.txt || true
 
@@ -119,8 +137,8 @@ jobs:
         id: chart
         if: steps.detect.outputs.has_changes == 'true'
         run: |
-          CURRENT_TAG="${{ steps.versions.outputs.CURRENT_TAG }}"
-          git clone --depth 1 --branch "keb-${CURRENT_TAG}" ${MGMT_CHARTS_CLONE_URL} mgmt-charts 2>/dev/null || \
+          KEB_TAG="${{ steps.versions.outputs.KEB_TAG }}"
+          git clone --depth 1 --branch "keb-${KEB_TAG}" ${MGMT_CHARTS_CLONE_URL} mgmt-charts 2>/dev/null || \
             git clone --depth 1 ${MGMT_CHARTS_CLONE_URL} mgmt-charts
           CHART_VERSION=$(grep '^version:' mgmt-charts/keb-sap/Chart.yaml | awk '{print $2}')
           echo "CHART_VERSION=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
@@ -146,7 +164,6 @@ jobs:
 
       - name: Commit and push
         if: steps.detect.outputs.has_changes == 'true'
-        id: push
         working-directory: product-kyma-runtime
         run: |
           BRANCH_NAME="keb-docs-sync-${GITHUB_SHA:0:8}"
@@ -186,7 +203,7 @@ jobs:
           [ -z "$RENAMED_LIST" ] && RENAMED_LIST="_none_"
 
           printf '## Automated sync from kyma-environment-broker\n\nThis PR was created automatically after structural changes were detected\nin the `docs/` directory of kyma-environment-broker.\n\n**KEB version:** `%s`  **Chart version:** `%s`\n\n### Added files\n%s\n\n### Renamed files\n%s\n\n> [!NOTE]\n> New entries are placed by numeric prefix order.\n> Please review their position in `toc.yaml` and adjust nesting if needed.\n' \
-            "${{ steps.versions.outputs.CURRENT_TAG }}" "${CHART_VERSION}" "${ADDED_LIST}" "${RENAMED_LIST}" \
+            "${{ steps.versions.outputs.KEB_TAG }}" "${CHART_VERSION}" "${ADDED_LIST}" "${RENAMED_LIST}" \
             > /tmp/pr_body.md
 
           PR_URL=$(gh pr create \
