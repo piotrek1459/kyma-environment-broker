@@ -25,7 +25,9 @@ from pathlib import Path
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-# Matches any "- filename: ..." line (with or without surrounding quotes)
+# Matches an indented "- filename: name" line in toc.yaml (name optionally in double quotes).
+# Group 1 captures the leading indentation + "- filename: " prefix so it can be reused
+# when rewriting the line, preserving the original indentation.
 FILENAME_RE = re.compile(r'^(\s*-\s+filename:\s+)"?([^"\n]+)"?\s*$')
 
 
@@ -56,8 +58,8 @@ def load_lines(path: str) -> list:
 
 # ── text-level operations (no YAML serialisation) ────────────────────────────
 
-def rename_in_lines(lines: list, old_keb: str, new_keb: str) -> tuple:
-    """Replace old_keb with new_keb in every filename line.
+def rename_in_lines(lines: list, old_toc_path: str, new_toc_path: str) -> tuple:
+    """Replace old_toc_path with new_toc_path in every matching filename line.
 
     Returns (new_lines, changed: bool).
     """
@@ -65,40 +67,52 @@ def rename_in_lines(lines: list, old_keb: str, new_keb: str) -> tuple:
     changed = False
     for line in lines:
         m = FILENAME_RE.match(line)
-        if m and m.group(2).strip() == old_keb:
-            new_lines.append(f'{m.group(1)}"{new_keb}"\n')
+        if m and m.group(2).strip() == old_toc_path:
+            new_lines.append(line.replace(old_toc_path, new_toc_path))
             changed = True
         else:
             new_lines.append(line)
     return new_lines, changed
 
 
-def insert_in_lines(lines: list, new_keb_path: str) -> tuple:
+def insert_in_lines(lines: list, new_toc_path: str) -> tuple:
     """Insert a new filename line at the correct position.
 
     Algorithm:
     1. Determine type: contributor or user.
-    2. Among lines referencing operations-keb/ files of the same type,
-       find entries whose first number matches the new file's first number.
-    3. Among those, pick the one with the largest second number that is
-       strictly less than the new file's second number.
-    4. Insert right after that line (preserving its indentation).
-    5. Fallback: insert after the last operations-keb/ line found.
+    2. Determine the canonical top-level indentation from the first operations-keb
+       entry – only entries at that indentation are considered as anchors, so the
+       new line is never inserted inside a subnav block.
+    3. Among top-level lines of the same type whose first number matches the new
+       file's first number, pick the one with the largest second number strictly
+       less than the new file's second number.
+    4. Insert right after that line using the canonical indentation.
+    5. Fallback: insert after the last top-level operations-keb line found.
 
     Returns (new_lines, inserted: bool).
     """
-    new_prefix = parse_numeric_prefix(new_keb_path)
+    new_prefix = parse_numeric_prefix(new_toc_path)
     if new_prefix is None:
         return lines, False
 
     new_major, new_minor = new_prefix
 
-    if '/contributor/' in new_keb_path:
+    if '/contributor/' in new_toc_path:
         file_type = 'contributor'
-    elif '/user/' in new_keb_path:
+    elif '/user/' in new_toc_path:
         file_type = 'user'
     else:
         file_type = None
+
+    # Determine the canonical indentation for top-level operations-keb entries.
+    # Only anchors at this indentation level are considered to avoid inserting
+    # inside a subnav block.
+    canonical_indent = None
+    for line in lines:
+        m = FILENAME_RE.match(line)
+        if m and m.group(2).strip().startswith('operations-keb/'):
+            canonical_indent = len(line) - len(line.lstrip())
+            break
 
     best_line_idx = -1
     best_minor = -1
@@ -110,6 +124,10 @@ def insert_in_lines(lines: list, new_keb_path: str) -> tuple:
             continue
         fname = m.group(2).strip()
         if not fname.startswith('operations-keb/'):
+            continue
+
+        # Skip subnav children – only anchor to top-level entries
+        if canonical_indent is not None and (len(line) - len(line.lstrip())) != canonical_indent:
             continue
 
         last_keb_line_idx = i
@@ -135,12 +153,10 @@ def insert_in_lines(lines: list, new_keb_path: str) -> tuple:
 
     if anchor < 0:
         print("WARNING: could not find an anchor line – appending at end of file")
-        return lines + [f'      - filename: "{new_keb_path}"\n'], True
+        return lines + [f'      - filename: "{new_toc_path}"\n'], True
 
-    # Derive indentation from the anchor line
-    anchor_line = lines[anchor]
-    indent = len(anchor_line) - len(anchor_line.lstrip())
-    new_line = f'{" " * indent}- filename: "{new_keb_path}"\n'
+    indent = canonical_indent if canonical_indent is not None else (len(lines[anchor]) - len(lines[anchor].lstrip()))
+    new_line = f'{" " * indent}- filename: "{new_toc_path}"\n'
 
     return lines[:anchor + 1] + [new_line] + lines[anchor + 1:], True
 
@@ -168,6 +184,9 @@ def main():
     warnings = []
 
     # ── renames ───────────────────────────────────────────────────────────────
+    # Renames are applied in-place: only the filename value is updated.
+    # The entry's position in toc.yaml is not changed, as it may be manually
+    # curated (e.g. placed inside a subnav or given a specific ordering).
     for line in load_lines(args.renamed):
         parts = line.split('\t')
         if len(parts) < 3:
@@ -180,16 +199,16 @@ def main():
         if 'docs/assets/' in old_docs:
             continue
 
-        old_keb = docs_to_operations_keb(old_docs)
-        new_keb = docs_to_operations_keb(new_docs)
+        old_toc_path = docs_to_operations_keb(old_docs)
+        new_toc_path = docs_to_operations_keb(new_docs)
 
-        lines, did_change = rename_in_lines(lines, old_keb, new_keb)
+        lines, did_change = rename_in_lines(lines, old_toc_path, new_toc_path)
         if did_change:
-            print(f"Renamed: {old_keb}  →  {new_keb}")
+            print(f"Renamed: {old_toc_path}  →  {new_toc_path}")
             changed = True
         else:
             warnings.append(
-                f"WARNING: '{old_keb}' not found in toc.yaml "
+                f"WARNING: '{old_toc_path}' not found in toc.yaml "
                 f"(file may not have been listed yet – skipping rename)"
             )
 
