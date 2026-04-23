@@ -107,7 +107,7 @@ jobs:
                   && echo "$doc_file"
               done > /tmp/added_files.txt || true
 
-          # Renamed files where at least one end has publish:true
+          # Renamed files – include when the old or new path has publish:true
           git diff -M --diff-filter=R --name-status "${PREV}" "${CURRENT}" -- 'docs/**/*.md' \
             | grep -v 'docs/assets/' \
             | while IFS=$'\t' read -r _status old new; do
@@ -120,13 +120,16 @@ jobs:
 
           echo "=== Added (publish:true) ==="
           cat /tmp/added_files.txt
-          echo "=== Renamed (publish:true on either end) ==="
+          echo "=== Renamed (publish:true on old or new path) ==="
           cat /tmp/renamed_files.txt
 
           if [ -s /tmp/added_files.txt ] || [ -s /tmp/renamed_files.txt ]; then
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            has_changes=true
           else
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            has_changes=false
+          fi
+          echo "has_changes=${has_changes}" >> "$GITHUB_OUTPUT"
+          if [ "$has_changes" = "false" ]; then
             echo "No structural doc changes detected – nothing to sync."
           fi
 

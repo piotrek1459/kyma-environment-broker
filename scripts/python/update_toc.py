@@ -45,8 +45,7 @@ def parse_numeric_prefix(filename: str):
 
 def docs_to_operations_keb(docs_path: str) -> str:
     """Convert 'docs/contributor/foo.md' -> 'operations-keb/contributor/foo.md'."""
-    rel = Path(docs_path).relative_to('docs')
-    return f"operations-keb/{rel}"
+    return docs_path.replace('docs/', 'operations-keb/', 1)
 
 
 def load_lines(path: str) -> list:
