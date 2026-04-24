@@ -91,7 +91,7 @@ The workflow performs the following steps:
 
 ## Sync KEB Docs Structure Workflow
 
-The [`sync-docs-toc`](/.github/workflows/sync-docs-toc.yml) workflow automatically opens a PR to the `product-kyma-runtime` repository whenever the `<!--{"metadata":{"publish":true}}-->` metadata is added to a file in KEB's `docs/` directory. This occurs when a new document is added, or an existing one is renamed, or the metadata is changed from `"publish":false` to `"publish":true`. 
+The [`sync-docs-toc`](/.github/workflows/sync-docs-toc.yml) workflow automatically opens a PR to the `product-kyma-runtime` repository whenever a new or renamed file in KEB's `docs/` directory contains the `<!--{"metadata":{"publish":true}}-->` metadata.
 These documents are published to the Restricted Markets documentation. Content edits to existing files require no action — `product-kyma-runtime` pulls the latest content automatically using a `fileTree` reference in its `manifest.yaml`.
 The workflow is triggered after every successful [Promote KEB to DEV](#promote-keb-to-dev-workflow) workflow run.
 
