@@ -1,12 +1,13 @@
 name: Sync KEB docs structure to product-kyma-runtime
 
-# Triggered after a successful "Promote KEB to dev" run (i.e. after every KEB release).
+# Triggered after a successful "Promote KEB to DEV" run (i.e. after every KEB release).
 # Compares docs/ between the released KEB version and the previous one.
 # Only files with <!--{"metadata":{"publish":true}}--> are considered.
 #
 # Two structural changes are handled:
-#   1. A new .md file with publish:true was added → add it to operations-keb in toc.yaml
-#   2. A published .md file was renamed            → update the filename in toc.yaml
+#   1. A new .md file with publish:true was added             → add it to operations-keb in toc.yaml
+#   2. A published .md file was renamed                       → update the filename in toc.yaml
+#   3. An existing .md file changed from publish:false to true → add it to operations-keb in toc.yaml
 #
 # The resulting PR to product-kyma-runtime carries:
 #   - title:  docs(keb): sync doc structure changes [chart@<CHART_VERSION>]
@@ -106,6 +107,17 @@ jobs:
                   | grep -q '<!--{"metadata":{"publish":true}}-->' \
                   && echo "$doc_file"
               done > /tmp/added_files.txt || true
+
+          # Modified files where metadata changed from publish:false to publish:true
+          git diff --diff-filter=M --name-only "${PREV}" "${CURRENT}" -- 'docs/**/*.md' \
+            | grep -v '^docs/assets/' \
+            | while IFS= read -r doc_file; do
+                old_pub=$(git show "${PREV}:${doc_file}"    2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
+                new_pub=$(git show "${CURRENT}:${doc_file}" 2>/dev/null | head -3 | grep -c '<!--{"metadata":{"publish":true}}-->' || true)
+                if [ "$old_pub" -eq 0 ] && [ "$new_pub" -gt 0 ]; then
+                  echo "$doc_file"
+                fi
+              done >> /tmp/added_files.txt || true
 
           # Renamed files – include when the old or new path has publish:true
           git diff -M --diff-filter=R --name-status "${PREV}" "${CURRENT}" -- 'docs/**/*.md' \

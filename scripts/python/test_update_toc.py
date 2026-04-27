@@ -206,12 +206,14 @@ class TestInsertInLines:
         names = filenames_from(result)
         assert names[-1] == "operations-keb/contributor/09-10-new-section.md"
 
-    def test_contributor_appended_when_all_neighbors_have_higher_minor(self):
-        # 03-05 – only 03-10, 03-40, 03-50 exist (all higher) → fallback: end
+    def test_contributor_inserted_before_smallest_existing_minor_in_same_major(self):
+        # 03-05 – only 03-10, 03-40, 03-50 exist (all higher) → insert before 03-10
         result, inserted = insert_in_lines(CONTRIBUTOR_LINES, "operations-keb/contributor/03-05-new.md")
         assert inserted is True
         names = filenames_from(result)
-        assert names[-1] == "operations-keb/contributor/03-05-new.md"
+        idx_05 = names.index("operations-keb/contributor/03-05-new.md")
+        idx_10 = names.index("operations-keb/contributor/03-10-hyperscaler-account-pool.md")
+        assert idx_05 < idx_10
 
     def test_no_cross_type_interference(self):
         # Adding a contributor file must not anchor against user/ entries.

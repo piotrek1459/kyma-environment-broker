@@ -84,9 +84,11 @@ def insert_in_lines(lines: list, new_toc_path: str) -> tuple:
        new line is never inserted inside a subnav block.
     3. Among top-level lines of the same type whose first number matches the new
        file's first number, pick the one with the largest second number strictly
-       less than the new file's second number.
-    4. Insert right after that line using the canonical indentation.
-    5. Fallback: insert after the last top-level operations-keb line found.
+       less than the new file's second number → insert after it.
+    4. If no such line exists but the major group is present, insert before the
+       first entry of that major group (new file is the smallest in the group).
+    5. Fallback: insert after the last top-level operations-keb line found
+       (major group doesn't exist yet).
 
     Returns (new_lines, inserted: bool).
     """
@@ -115,7 +117,8 @@ def insert_in_lines(lines: list, new_toc_path: str) -> tuple:
 
     best_line_idx = -1
     best_minor = -1
-    last_keb_line_idx = -1  # fallback anchor
+    first_same_major_idx = -1  # first entry with same major (for insert-before)
+    last_keb_line_idx = -1     # fallback when major group doesn't exist yet
 
     for i, line in enumerate(lines):
         m = FILENAME_RE.match(line)
@@ -144,20 +147,31 @@ def insert_in_lines(lines: list, new_toc_path: str) -> tuple:
         if entry_major != new_major:
             continue
 
+        if first_same_major_idx < 0:
+            first_same_major_idx = i
+
         if entry_minor < new_minor and entry_minor > best_minor:
             best_minor = entry_minor
             best_line_idx = i
 
-    anchor = best_line_idx if best_line_idx >= 0 else last_keb_line_idx
+    indent = canonical_indent if canonical_indent is not None else 6
 
-    if anchor < 0:
-        print("WARNING: could not find an anchor line – appending at end of file")
-        return lines + [f'      - filename: "{new_toc_path}"\n'], True
-
-    indent = canonical_indent if canonical_indent is not None else (len(lines[anchor]) - len(lines[anchor].lstrip()))
     new_line = f'{" " * indent}- filename: "{new_toc_path}"\n'
 
-    return lines[:anchor + 1] + [new_line] + lines[anchor + 1:], True
+    if best_line_idx >= 0:
+        # Insert after the largest minor that is still smaller than new_minor
+        return lines[:best_line_idx + 1] + [new_line] + lines[best_line_idx + 1:], True
+
+    if first_same_major_idx >= 0:
+        # New file is the smallest in this major group → insert before the first entry
+        return lines[:first_same_major_idx] + [new_line] + lines[first_same_major_idx:], True
+
+    if last_keb_line_idx >= 0:
+        # Major group doesn't exist yet → append after the last top-level keb entry
+        return lines[:last_keb_line_idx + 1] + [new_line] + lines[last_keb_line_idx + 1:], True
+
+    print("WARNING: could not find an anchor line – appending at end of file")
+    return lines + [new_line], True
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
