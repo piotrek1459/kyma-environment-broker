@@ -242,3 +242,26 @@ class TestInsertInLines:
         anchor_indent = len(anchor) - len(anchor.lstrip())
         new_indent = len(new_line) - len(new_line.lstrip())
         assert anchor_indent == new_indent
+
+    def test_contributor_inserted_in_subnav_when_major_group_is_deeper(self):
+        # Simulate toc.yaml where top-level entry is README.md and all
+        # contributor/06-xx entries live inside its subnav (deeper indentation).
+        # 06-80 should be inserted after 06-71 inside the subnav, not after README.md.
+        lines = [
+            '      - filename: "operations-keb/README.md"\n',
+            '        subnav:\n',
+            '          - filename: "operations-keb/contributor/06-30-subaccount-cleanup-cronjob.md"\n',
+            '          - filename: "operations-keb/contributor/06-71-service-binding-cleanup-cronjob.md"\n',
+            '          - filename: "operations-keb/contributor/07-10-runtime-reconciler.md"\n',
+        ]
+        result, inserted = insert_in_lines(lines, "operations-keb/contributor/06-80-test.md")
+        assert inserted is True
+        names = filenames_from(result)
+        idx_71 = names.index("operations-keb/contributor/06-71-service-binding-cleanup-cronjob.md")
+        idx_80 = names.index("operations-keb/contributor/06-80-test.md")
+        idx_07 = names.index("operations-keb/contributor/07-10-runtime-reconciler.md")
+        assert idx_71 + 1 == idx_80
+        assert idx_80 + 1 == idx_07
+        # New line must inherit subnav indentation (10 spaces), not top-level (6 spaces)
+        new_line = next(l for l in result if "06-80-test.md" in l)
+        assert new_line.startswith(' ' * 10)
