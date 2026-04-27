@@ -2,16 +2,17 @@
 """Updates product-kyma-runtime/docs/toc.yaml when KEB docs structure changes.
 
 Handles:
-  - New .md files in docs/: inserts entry into the operations-keb section
+  - New .md files to add: inserts entry into the operations-keb section
+    (covers newly added files and files whose metadata flipped to publish:true)
   - Renamed .md files: updates the filename reference everywhere in toc.yaml
 
-Only .md additions/renames matter – content changes to existing files are
-served automatically via the fileTree reference in manifest.yaml.
+Only structural changes matter – content edits to existing files are served
+automatically via the fileTree reference in manifest.yaml.
 
 Usage:
   update_toc.py --toc <path> --added <file> --renamed <file>
 
-  --added:   path to a file listing added .md paths (one per line,
+  --added:   path to a file listing .md paths to add (one per line,
              relative to repo root, e.g. "docs/contributor/03-85-foo.md")
   --renamed: path to a file listing renames in git --name-status format
              (e.g. "R100\tdocs/old.md\tdocs/new.md")
@@ -25,9 +26,10 @@ from pathlib import Path
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-# Matches an indented "- filename: name" line in toc.yaml (name optionally in double quotes).
-# Group 1 captures the leading indentation + "- filename: " prefix so it can be reused
-# when rewriting the line, preserving the original indentation.
+# Matches any "- filename: name" line in toc.yaml (name optionally in quotes).
+# Leading \s* is required because toc.yaml entries are indented with spaces.
+# Group 2 captures the filename value; group 1 captures the prefix up to the value
+# so rename_in_lines can reuse it when rewriting the line.
 FILENAME_RE = re.compile(r'^(\s*-\s+filename:\s+)"?([^"\n]+)"?\s*$')
 
 
