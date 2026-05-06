@@ -93,7 +93,7 @@ The workflow performs the following steps:
 
 The [`sync-docs-toc`](/.github/workflows/sync-docs-toc.yml) workflow automatically opens a PR to the `product-kyma-runtime` repository whenever a new or renamed file in KEB's `docs/` directory contains the `<!--{"metadata":{"publish":true}}-->` metadata.
 These documents are published to the Restricted Markets documentation. Content edits to existing files require no action — `product-kyma-runtime` pulls the latest content automatically using a `fileTree` reference in its `manifest.yaml`.
-The workflow is triggered after every successful [Create and Promote Release](#create-and-promote-release-workflow) or [Promote KEB to DEV](#promote-keb-to-dev-workflow) workflow run. It can also be triggered manually via `workflow_dispatch`.
+The workflow is triggered after every successful [Create and Promote Release](#create-and-promote-release-workflow) or [Promote KEB to DEV](#promote-keb-to-dev-workflow) workflow run. You can also trigger it manually using `workflow_dispatch`.
 
 The workflow performs the following steps:
 
@@ -105,14 +105,14 @@ The workflow performs the following steps:
 
 If no relevant changes are detected, the workflow exits early and no PR is created. On failure, a Slack notification is sent to `kyma-gopher-private-alerts`.
 
-### Manual trigger
+### Manual Trigger
 
-The workflow can be triggered manually with the following inputs:
+You can manually trigger the workflow with the following inputs:
 
 | Input | Required | Description |
 |-------|:--------:|-------------|
-| **`prev_tag`** | yes | Older release tag to use as the base of the diff (e.g. `1.29.13`) |
-| **`current_tag`** | no | Newer release tag to diff against. Defaults to the latest published release. |
+| `prev_tag` | yes | Older release tag to use as the base of the diff (for example, `1.29.13`) |
+| `current_tag` | no | Newer release tag to diff against. Defaults to the latest published release. |
 
 ## Reusable Workflows
 
