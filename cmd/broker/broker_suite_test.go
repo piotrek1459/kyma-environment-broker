@@ -127,9 +127,9 @@ func NewBrokerSuitTestWithMetrics(t *testing.T, cfg *Config, version ...string) 
 			panic(r)
 		}
 	}()
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	log := slog.New(newStrippingHandler(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
-	}))
+	}), "instance-details"))
 	broker := NewBrokerSuiteTestWithConfig(t, cfg, version...)
 	gardenerClientWithNamespace := gardener.NewClient(broker.gardenerClient, gardenerKymaNamespace)
 	metricsCtx, cancel := context.WithCancel(context.Background())
@@ -159,9 +159,9 @@ func NewBrokerSuiteTestWithConfig(t *testing.T, cfg *Config, version ...string) 
 	ot := NewTestingObjectTracker(sch)
 	cli := fake.NewClientBuilder().WithScheme(sch).WithRuntimeObjects(fixK8sResources(defaultKymaVer, additionalKymaVersions)...).
 		WithObjectTracker(ot).Build()
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	log := slog.New(newStrippingHandler(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelWarn,
-	}))
+	}), "instance-details"))
 
 	configProvider := kebConfig.NewConfigProvider(
 		kebConfig.NewConfigMapReader(ctx, cli, log),
@@ -1153,4 +1153,49 @@ func (s *BrokerSuiteTest) CreateAdditionalCredentialsBinding(name, hyperscalerTy
 
 	_, err := s.gardenerClient.Resource(gardener.CredentialsBindingResource).Namespace(gardenerKymaNamespace).Create(context.Background(), &cb.Unstructured, metav1.CreateOptions{})
 	require.NoError(s.t, err)
+}
+
+// strippingHandler is a slog.Handler that drops attributes with the given keys.
+// Suppresses brokerapi's verbose "instance-details" attribute which embeds the
+// full raw request payload — can be 64 KB+ for size-limit tests.
+type strippingHandler struct {
+	inner slog.Handler
+	strip map[string]struct{}
+}
+
+func newStrippingHandler(inner slog.Handler, keys ...string) *strippingHandler {
+	m := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		m[k] = struct{}{}
+	}
+	return &strippingHandler{inner: inner, strip: m}
+}
+
+func (h *strippingHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.inner.Enabled(ctx, level)
+}
+
+func (h *strippingHandler) Handle(ctx context.Context, r slog.Record) error {
+	filtered := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
+	r.Attrs(func(a slog.Attr) bool {
+		if _, skip := h.strip[a.Key]; !skip {
+			filtered.AddAttrs(a)
+		}
+		return true
+	})
+	return h.inner.Handle(ctx, filtered)
+}
+
+func (h *strippingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	filtered := make([]slog.Attr, 0, len(attrs))
+	for _, a := range attrs {
+		if _, skip := h.strip[a.Key]; !skip {
+			filtered = append(filtered, a)
+		}
+	}
+	return &strippingHandler{inner: h.inner.WithAttrs(filtered), strip: h.strip}
+}
+
+func (h *strippingHandler) WithGroup(name string) slog.Handler {
+	return &strippingHandler{inner: h.inner.WithGroup(name), strip: h.strip}
 }
