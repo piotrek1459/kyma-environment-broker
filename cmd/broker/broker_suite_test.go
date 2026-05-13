@@ -1155,9 +1155,11 @@ func (s *BrokerSuiteTest) CreateAdditionalCredentialsBinding(name, hyperscalerTy
 	require.NoError(s.t, err)
 }
 
-// strippingHandler is a slog.Handler that drops attributes with the given keys.
-// Suppresses brokerapi's verbose "instance-details" attribute which embeds the
-// full raw request payload — can be 64 KB+ for size-limit tests.
+// strippingHandler is a slog.Handler that truncates attributes with the given keys
+// to maxInstanceDetailsLen characters. Prevents brokerapi's "instance-details"
+// attribute (which embeds the full raw request payload) from flooding test output.
+const maxInstanceDetailsLen = 1024
+
 type strippingHandler struct {
 	inner slog.Handler
 	strip map[string]struct{}
@@ -1178,7 +1180,13 @@ func (h *strippingHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *strippingHandler) Handle(ctx context.Context, r slog.Record) error {
 	filtered := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
 	r.Attrs(func(a slog.Attr) bool {
-		if _, skip := h.strip[a.Key]; !skip {
+		if _, truncate := h.strip[a.Key]; truncate {
+			s := fmt.Sprintf("%v", a.Value.Any())
+			if len(s) > maxInstanceDetailsLen {
+				s = s[:maxInstanceDetailsLen] + "...[truncated]"
+			}
+			filtered.AddAttrs(slog.String(a.Key, s))
+		} else {
 			filtered.AddAttrs(a)
 		}
 		return true
@@ -1191,6 +1199,12 @@ func (h *strippingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	for _, a := range attrs {
 		if _, skip := h.strip[a.Key]; !skip {
 			filtered = append(filtered, a)
+		} else {
+			s := fmt.Sprintf("%v", a.Value.Any())
+			if len(s) > maxInstanceDetailsLen {
+				s = s[:maxInstanceDetailsLen] + "...[truncated]"
+			}
+			filtered = append(filtered, slog.String(a.Key, s))
 		}
 	}
 	return &strippingHandler{inner: h.inner.WithAttrs(filtered), strip: h.strip}
