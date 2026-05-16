@@ -321,16 +321,13 @@ func toParameterStats(counts map[string]map[string]int, total int) ParameterStat
 	return ParameterStats{Parameters: result}
 }
 
-// BuildDistributions computes value breakdowns for all distribution-worthy fields.
-// Fields with behaviorCount (e.g. administrators, additionalWorkerNodePools) are excluded
-// because they emit numeric counts rather than categorical values.
+// BuildDistributions computes value breakdowns for all tracked fields from provisioning params.
+// All non-skip behaviors are included; behaviorCount fields emit their numeric length as the bucket value.
 func BuildDistributions(params []ProvisioningParamsWithID) []DistributionStat {
 	counts := buildCounts(params)
 	fields := make([]string, 0, len(counts))
 	for field := range counts {
-		if provisioningFieldConfig[field] != behaviorCount {
-			fields = append(fields, field)
-		}
+		fields = append(fields, field)
 	}
 	sort.Strings(fields)
 	result := make([]DistributionStat, 0, len(fields))
