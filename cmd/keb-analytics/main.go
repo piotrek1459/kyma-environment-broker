@@ -125,7 +125,7 @@ func main() {
 			RegionsByPlan:  regionsByPlan,
 		}
 
-mu.Lock()
+		mu.Lock()
 		c = cache{
 			resp:          resp,
 			provParams:    provParams,

@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testRegion = "eu-central-1"
+
 func TestWalkFields_SkipsConfiguredFields(t *testing.T) {
 	dto := pkg.ProvisioningParametersDTO{
 		Zones: []string{"eu-central-1a"},
@@ -194,7 +196,7 @@ func TestAggregateUpdates_CountsSetFields(t *testing.T) {
 }
 
 func TestBuildDistributions_IncludesRegion(t *testing.T) {
-	region := "eu-central-1"
+	region := testRegion
 	params := []ProvisioningParamsWithID{
 		{InstanceID: "i1", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
 		{InstanceID: "i2", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
@@ -203,7 +205,7 @@ func TestBuildDistributions_IncludesRegion(t *testing.T) {
 	found := false
 	for _, d := range dists {
 		if d.Parameter == "region" {
-			assert.Equal(t, 2, d.Values["eu-central-1"])
+			assert.Equal(t, 2, d.Values[testRegion])
 			found = true
 		}
 	}
@@ -239,7 +241,7 @@ func distinctUpdateInstancesWithParam(upd []UpdateParamsWithID, param string) in
 // that can only be set at provisioning time (not tracked in updatingFieldConfig),
 // combined equals provisioning regardless of what updates are present.
 func TestAggregateCombined_SetOnlyParam_EqualsProvisioning(t *testing.T) {
-	region := "eu-central-1"
+	region := testRegion
 	prov := []ProvisioningParamsWithID{
 		{InstanceID: "i1", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
 		{InstanceID: "i2", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
@@ -363,13 +365,13 @@ func TestBuildDistributions_IncludesCountBehaviorFields(t *testing.T) {
 // TestBuildDistributions_ParamSetConsistency confirms that every parameter appearing
 // in provisioning or combined stats also appears in distributions.
 func TestBuildDistributions_ParamSetConsistency(t *testing.T) {
-	region := "eu-central-1"
+	region := testRegion
 	machineType := "m6i.xlarge"
 	prov := []ProvisioningParamsWithID{
 		{InstanceID: "i1", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{
-			Region:      &region,
-			MachineType: &machineType,
-			Gvisor:      &pkg.GvisorDTO{Enabled: true},
+			Region:                    &region,
+			MachineType:               &machineType,
+			Gvisor:                    &pkg.GvisorDTO{Enabled: true},
 			AdditionalWorkerNodePools: []pkg.AdditionalWorkerNodePool{{}},
 		}}},
 		{InstanceID: "i2", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{
