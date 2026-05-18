@@ -875,9 +875,9 @@ func NewAdditionalWorkerNodePoolsSchema(machineTypesDisplay map[string]string, m
 					Default:     autoscalerMaxDefaultValue,
 					Description: "Specifies the maximum number of virtual machines to create.",
 				},
-				Taints:        NewTaintsSchema(rejectUnsupportedParameters),
-				Labels:        NewLabelsSchema(),
-				Annotations:   NewAnnotationsSchema(),
+				Taints:      NewTaintsSchema(rejectUnsupportedParameters),
+				Labels:      NewLabelsSchema(),
+				Annotations: NewAnnotationsSchema(),
 			},
 		},
 	}
