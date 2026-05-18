@@ -52,6 +52,8 @@
           "haZones",
           "autoScalerMin",
           "autoScalerMax",
+          "labels",
+          "annotations",
           "taints"
         ],
         "properties": {
@@ -130,6 +132,26 @@
             "minimum": 1,
             "maximum": 300,
             "default": 20
+          },
+          "labels": {
+            "type": "object",
+            "description": "Define labels",
+            "_controlType": "keyvalue",
+            "patternProperties": {
+              ".*": {
+                "type": "string"
+              }
+            }
+          },
+          "annotations": {
+            "type": "object",
+            "description": "Define annotations",
+            "_controlType": "keyvalue",
+            "patternProperties": {
+              ".*": {
+                "type": "string"
+              }
+            }
           },
           "taints": {
             "description": "Specifies taints for the worker node pool. With the taints added, a node can repel sets of Pods with no matching tolerations.",
