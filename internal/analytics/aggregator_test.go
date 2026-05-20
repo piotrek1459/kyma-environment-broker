@@ -363,7 +363,8 @@ func TestBuildDistributions_IncludesCountBehaviorFields(t *testing.T) {
 }
 
 // TestBuildDistributions_ParamSetConsistency confirms that every parameter appearing
-// in provisioning or combined stats also appears in distributions.
+// in provisioning stats also appears in distributions. BuildDistributions is built
+// from provisioning params only, so this is the only guaranteed invariant.
 func TestBuildDistributions_ParamSetConsistency(t *testing.T) {
 	region := testRegion
 	machineType := "m6i.xlarge"
@@ -378,12 +379,8 @@ func TestBuildDistributions_ParamSetConsistency(t *testing.T) {
 			Region: &region,
 		}}},
 	}
-	upd := []UpdateParamsWithID{
-		{InstanceID: "i2", Params: internal.UpdatingParametersDTO{Gvisor: &pkg.GvisorDTO{Enabled: true}}},
-	}
 
 	provStats := AggregateProvisioning(prov)
-	combined := AggregateCombined(prov, upd)
 	dists := BuildDistributions(prov)
 
 	distParams := make(map[string]struct{})
@@ -395,8 +392,39 @@ func TestBuildDistributions_ParamSetConsistency(t *testing.T) {
 		_, ok := distParams[p.Parameter]
 		assert.True(t, ok, "provisioning param %q must appear in distributions", p.Parameter)
 	}
-	for _, p := range combined.Parameters {
-		_, ok := distParams[p.Parameter]
-		assert.True(t, ok, "combined param %q must appear in distributions", p.Parameter)
+}
+
+// TestBuildDistributions_UpdateOnlyParamAbsentFromDistributions documents that a
+// parameter set only via an update operation (never at provisioning time) does not
+// appear in distributions, because BuildDistributions takes provisioning params only.
+// The UI handles this via the "Include not provided/null" checkbox, which adds
+// such combined params to the distribution dropdown showing 100% not-provided.
+func TestBuildDistributions_UpdateOnlyParamAbsentFromDistributions(t *testing.T) {
+	region := testRegion
+	prov := []ProvisioningParamsWithID{
+		{InstanceID: "i1", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
+		{InstanceID: "i2", Params: internal.ProvisioningParameters{Parameters: pkg.ProvisioningParametersDTO{Region: &region}}},
 	}
+	upd := []UpdateParamsWithID{
+		{InstanceID: "i2", Params: internal.UpdatingParametersDTO{Gvisor: &pkg.GvisorDTO{Enabled: true}}},
+	}
+
+	combined := AggregateCombined(prov, upd)
+	dists := BuildDistributions(prov)
+
+	distParams := make(map[string]struct{})
+	for _, d := range dists {
+		distParams[d.Parameter] = struct{}{}
+	}
+
+	gvisorInCombined := false
+	for _, p := range combined.Parameters {
+		if p.Parameter == "gvisor" {
+			gvisorInCombined = true
+			break
+		}
+	}
+	assert.True(t, gvisorInCombined, "gvisor must appear in combined (set via update on i2)")
+	_, inDist := distParams["gvisor"]
+	assert.False(t, inDist, "gvisor must not appear in distributions (no instance provisioned with it)")
 }
