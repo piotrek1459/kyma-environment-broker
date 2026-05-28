@@ -29,8 +29,8 @@ Each rule is a compact string with quoted tokens separated by commas:
 ```
 '"<message>"'
 '"<message>","plan=<plan1>,<plan2>"'
-'"<message>","plan=<plan1>,<plan2>","GA=<globalAccountID>"'
-'"<message>","plan=<plan1>,<plan2>","GA!=<globalAccountID>"'
+'"<message>","plan=<plan1>,<plan2>","GA=<id1>,<id2>"'
+'"<message>","plan=<plan1>,<plan2>","GA!=<id1>,<id2>"'
 ```
 
 ### Tokens
@@ -42,11 +42,15 @@ Each rule is a compact string with quoted tokens separated by commas:
 - A single plan: `plan=trial`
 - Multiple plans: `plan=trial,aws` — matches both trial and aws
 
-**`GA=<globalAccountID>`** — optional. The rule matches **only** the specified GlobalAccount. All other GlobalAccounts are not blocked by this rule.
+**`GA=<id1>,<id2>`** — optional. The rule matches **only** the specified GlobalAccounts. All other GlobalAccounts are not blocked by this rule.
 
-**`GA!=<globalAccountID>`** — optional. The rule does **not** match the specified GlobalAccount. All other GlobalAccounts are blocked by this rule.
+- A single account: `GA=ga-vip`
+- Multiple accounts: `GA=ga-vip-1,ga-vip-2` — matches either account
 
-> **Note:** `GA=` and `GA!=` each accept a single GlobalAccount ID. To target multiple accounts, use multiple rules. See [Multiple Rules](#multiple-rules).
+**`GA!=<id1>,<id2>`** — optional. The rule does **not** match the specified GlobalAccounts. All other GlobalAccounts are blocked by this rule.
+
+- A single exemption: `GA!=ga-exempt`
+- Multiple exemptions: `GA!=ga-exempt-1,ga-exempt-2` — neither account is blocked by this rule
 
 > **Note:** `GA=` and `GA!=` require `plan=` to be present. A rule with a GA filter but no plan filter is rejected at startup.
 
@@ -60,19 +64,19 @@ All filters in a single rule are combined with **AND** — a rule matches only w
 |---|---|---|
 | `plan=trial` | — | plan is trial |
 | `plan=trial` | `GA=X` | plan is trial **and** GA is X |
+| `plan=trial` | `GA=X,Y` | plan is trial **and** GA is X or Y |
 | `plan=trial` | `GA!=X` | plan is trial **and** GA is not X |
+| `plan=trial` | `GA!=X,Y` | plan is trial **and** GA is neither X nor Y |
 
-`GA=` means "block only this GA" — the rule is a targeted block for one account.
+`GA=` means "block only these GAs" — the rule is a targeted block for specific accounts.
 
-`GA!=` means "block everyone except this GA" — the rule is a broad suspension with a single exemption.
+`GA!=` means "block everyone except these GAs" — the rule is a broad suspension with exemptions.
 
 ## Multiple Rules
 
 Rules within an operation type are evaluated in order. **The first matching rule wins** — evaluation stops and its message is returned. Rules that do not match are skipped.
 
-This means:
-- More specific rules (with `GA=`) should come **before** broader ones (with `plan=` only).
-- `GA!=` with two different accounts in separate rules does **not** create two exemptions — see the pitfall below.
+This means more specific rules (with `GA=`) should come **before** broader ones (with `plan=` only).
 
 ### Patterns
 
@@ -80,26 +84,26 @@ This means:
 
 ```yaml
 provision:
-  - '"Blocked for GA1","plan=trial","GA=ga-1"'
-  - '"Blocked for GA2","plan=trial","GA=ga-2"'
+  - '"Blocked for GA1 and GA2","plan=trial","GA=ga-1,ga-2"'
 ```
 
 | plan | GA | result |
 |---|---|---|
-| trial | `ga-1` | blocked — "Blocked for GA1" |
-| trial | `ga-2` | blocked — "Blocked for GA2" |
+| trial | `ga-1` | blocked — "Blocked for GA1 and GA2" |
+| trial | `ga-2` | blocked — "Blocked for GA1 and GA2" |
 | trial | anything else | allowed |
 
-**Block everyone except one account (broad suspension with exemption):**
+**Block everyone except specific accounts (broad suspension with exemptions):**
 
 ```yaml
 provision:
-  - '"Trial suspended","plan=trial","GA!=ga-exempt"'
+  - '"Trial suspended","plan=trial","GA!=ga-exempt-1,ga-exempt-2"'
 ```
 
 | plan | GA | result |
 |---|---|---|
-| trial | `ga-exempt` | allowed |
+| trial | `ga-exempt-1` | allowed |
+| trial | `ga-exempt-2` | allowed |
 | trial | anything else | blocked — "Trial suspended" |
 
 **Catch-all after specific rules:**
@@ -115,22 +119,6 @@ provision:
 | trial | `ga-vip` | blocked — "VIP account" (rule 1 matches) |
 | trial | anything else | blocked — "Trial suspended for trial" (rule 1 doesn't match, rule 2 does) |
 | aws | anything | allowed (neither rule matches) |
-
-**`GA!=` pitfall — does NOT create multiple exemptions:**
-
-```yaml
-provision:
-  - '"Trial suspended","plan=trial","GA!=ga-exempt-1"'
-  - '"Trial suspended","plan=trial","GA!=ga-exempt-2"'
-```
-
-| plan | GA | result | why |
-|---|---|---|---|
-| trial | `ga-exempt-1` | **blocked** | rule 1 skips, rule 2 matches |
-| trial | `ga-exempt-2` | **blocked** | rule 1 matches |
-| trial | anything else | **blocked** | rule 1 matches |
-
-To exempt multiple accounts use `GA=` (block specific accounts) instead of `GA!=`.
 
 ## Supported Operations
 
@@ -152,6 +140,8 @@ KEB validates the blocklist at startup. The following configurations are rejecte
 | `'"msg","plan=aws,,gcp"'` | Empty segment in plan list |
 | `'"msg","GA="'` | Empty GA value |
 | `'"msg","GA!="'` | Empty GA value |
+| `'"msg","GA=ga-1,,ga-2"'` | Empty segment in GA list |
+| `'"msg","GA!=ga-1,,ga-2"'` | Empty segment in GA list |
 | `'"msg","GA=X"'` | GA filter without `plan=` |
 | `'"msg","GA!=X"'` | GA filter without `plan=` |
 | `'"msg",'` | Trailing comma |
@@ -160,7 +150,7 @@ KEB validates the blocklist at startup. The following configurations are rejecte
 
 A rule with only a message (`'"msg"'`), an empty string rule (`''`), or an empty key (for example, `provision:`) is a no-op and does not cause an error.
 
-> **Note:** `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping anyone — everyone is blocked. An incorrect ID in `GA=` results in the rule never matching — no one is blocked by that rule.
+> **Note:** `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping that account — it will be blocked. An incorrect ID in `GA=` results in the rule never matching — no one is blocked by that rule.
 
 ## Plan Names
 

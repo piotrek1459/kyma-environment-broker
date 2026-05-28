@@ -27,17 +27,17 @@ type OperationContext struct {
 // Rule holds a parsed blocking rule.
 //
 // Compact string format: '"message"' or '"message","plan=val1,val2"'
-// or '"message","plan=val1,val2","GA!=<globalAccountID>"'
+// or '"message","plan=val1,val2","GA!=<id1>,<id2>"'
 //
 // The message is a double-quoted string as the first token. The optional
 // tokens are double-quoted key=value or key!=value strings.
 //
 // The message may contain the {plan} placeholder.
 type Rule struct {
-	Message              string
-	Plan                 string // empty = match all plans
-	IncludeGlobalAccount string // GA= value; empty = no filter
-	ExcludeGlobalAccount string // GA!= value; empty = no exclusion
+	Message               string
+	Plan                  string   // comma-separated list; empty = match all plans
+	IncludeGlobalAccounts []string // GA= values; nil = no filter
+	ExcludeGlobalAccounts []string // GA!= values; nil = no exclusion
 }
 
 // parseRule parses a compact rule string. Tokens are comma-separated quoted
@@ -85,7 +85,13 @@ func parseRule(s string) (Rule, error) {
 				if val == "" {
 					return Rule{}, fmt.Errorf("empty GA value in rule %q", s)
 				}
-				r.ExcludeGlobalAccount = val
+				parts := strings.Split(val, ",")
+				for _, p := range parts {
+					if strings.TrimSpace(p) == "" {
+						return Rule{}, fmt.Errorf("empty GA segment in rule %q", s)
+					}
+				}
+				r.ExcludeGlobalAccounts = parts
 			default:
 				return Rule{}, fmt.Errorf("unknown negation key %q in rule %q", key, s)
 			}
@@ -112,12 +118,18 @@ func parseRule(s string) (Rule, error) {
 			if val == "" {
 				return Rule{}, fmt.Errorf("empty GA value in rule %q", s)
 			}
-			r.IncludeGlobalAccount = val
+			parts := strings.Split(val, ",")
+			for _, p := range parts {
+				if strings.TrimSpace(p) == "" {
+					return Rule{}, fmt.Errorf("empty GA segment in rule %q", s)
+				}
+			}
+			r.IncludeGlobalAccounts = parts
 		default:
 			return Rule{}, fmt.Errorf("unknown key %q in rule %q (allowed: \"plan=\", \"GA=\", \"GA!=\")", key, s)
 		}
 	}
-	if (r.IncludeGlobalAccount != "" || r.ExcludeGlobalAccount != "") && r.Plan == "" {
+	if (len(r.IncludeGlobalAccounts) > 0 || len(r.ExcludeGlobalAccounts) > 0) && r.Plan == "" {
 		return Rule{}, fmt.Errorf("GA filter requires plan= in rule %q", s)
 	}
 	return r, nil
@@ -298,11 +310,24 @@ func matchesRule(r Rule, pv PlanValidator, ctx OperationContext) bool {
 	if r.Plan != "" && !matchesPlan(pv, r.Plan, ctx.PlanName) {
 		return false
 	}
-	if r.IncludeGlobalAccount != "" && !strings.EqualFold(r.IncludeGlobalAccount, ctx.GlobalAccountID) {
-		return false
+	if len(r.IncludeGlobalAccounts) > 0 {
+		matched := false
+		for _, ga := range r.IncludeGlobalAccounts {
+			if strings.EqualFold(ga, ctx.GlobalAccountID) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
 	}
-	if r.ExcludeGlobalAccount != "" && strings.EqualFold(r.ExcludeGlobalAccount, ctx.GlobalAccountID) {
-		return false
+	if len(r.ExcludeGlobalAccounts) > 0 {
+		for _, ga := range r.ExcludeGlobalAccounts {
+			if strings.EqualFold(ga, ctx.GlobalAccountID) {
+				return false
+			}
+		}
 	}
 	return true
 }

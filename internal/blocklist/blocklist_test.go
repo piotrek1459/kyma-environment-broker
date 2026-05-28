@@ -380,7 +380,37 @@ func TestGAInclusion_EmptyGAInContext_NoMatch(t *testing.T) {
 	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: ""}))
 }
 
-// --- error cases ---
+// --- GA!= list ---
+
+func TestGAExclusion_List_ExemptsAll(t *testing.T) {
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=ga-1,ga-2"`)
+	require.NoError(t, err)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "ga-1"}))
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "ga-2"}))
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
+}
+
+func TestGAExclusion_List_EmptySegment_IsError(t *testing.T) {
+	path := writeYAML(t, "provision: '\"blocked\",\"plan=trial\",\"GA!=ga-1,,ga-2\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
+
+// --- GA= list ---
+
+func TestGAInclusion_List_BlocksAll(t *testing.T) {
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=ga-1,ga-2"`)
+	require.NoError(t, err)
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "ga-1"}), "blocked")
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "ga-2"}), "blocked")
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}))
+}
+
+func TestGAInclusion_List_EmptySegment_IsError(t *testing.T) {
+	path := writeYAML(t, "provision: '\"blocked\",\"plan=trial\",\"GA=ga-1,,ga-2\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
 
 func TestReadFromFile_NotFound(t *testing.T) {
 	_, err := blocklist.ReadFromFile("/nonexistent/path.yaml")
