@@ -66,15 +66,14 @@ deprovision: '"Deprovisioning is blocked for {plan}","plan=trial"'
 # Block trial provisioning for everyone except one GlobalAccount
 provision: '"Trial plan temporarily suspended.","plan=trial","GA!=12234243534"'
 
-# Block trial provisioning for all GlobalAccounts except two (use multiple rules,
-# first match wins — so list the exceptions as separate rules that evaluate before
-# the blocking rule, or model this as a single rule per exempt account)
+# Block trial provisioning for all GlobalAccounts except two
 provision:
   - '"Trial plan temporarily suspended.","plan=trial","GA!=11111111111"'
+  - '"Trial plan temporarily suspended.","plan=trial","GA!=22222222222"'
 ```
 
 > ### Note:
-> Each rule with `GA!=` exempts only one GlobalAccount. To exempt multiple accounts, add one rule per account. Rules are evaluated in order and the first matching rule returns the error — but a rule whose `GA!=` exclusion matches the current account is skipped, so all rules are checked.
+> Each `GA!=` token exempts exactly one GlobalAccount. To exempt multiple accounts, add one rule per account. All rules are always evaluated — a rule whose `GA!=` exclusion matches the current account is skipped and the next rule is checked. An account is blocked only if **all** rules match it (none of the `GA!=` exclusions apply).
 
 ## Supported Operations
 
