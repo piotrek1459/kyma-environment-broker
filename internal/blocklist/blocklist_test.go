@@ -57,28 +57,33 @@ func parseInline(op string, rules ...string) (blocklist.OperationBlocklist, erro
 	return bl.WithPlanValidator(testPlans)
 }
 
+// ctx is a test helper that builds an OperationContext with only the plan set.
+func ctx(plan string) blocklist.OperationContext {
+	return blocklist.OperationContext{PlanName: plan}
+}
+
 // --- parser ---
 
 func TestParseRule_MessageOnly(t *testing.T) {
-	// A rule with no plan filter is a no-op — plan filter is required to block.
+	// A rule with no filters at all is a no-op.
 	bl, err := parseInline("provision", `"always blocked"`)
 	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision("any"))
+	assert.NoError(t, bl.CheckProvision(ctx("any")))
 }
 
 func TestParseRule_WithPlan(t *testing.T) {
 	bl, err := parseInline("provision", `"blocked {plan}","plan=aws"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision("aws"), "blocked aws")
-	assert.NoError(t, bl.CheckProvision("gcp"))
+	assert.EqualError(t, bl.CheckProvision(ctx("aws")), "blocked aws")
+	assert.NoError(t, bl.CheckProvision(ctx("gcp")))
 }
 
 func TestParseRule_PlanList(t *testing.T) {
 	bl, err := parseInline("provision", `"blocked {plan}","plan=aws,gcp"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision("aws"), "blocked aws")
-	assert.EqualError(t, bl.CheckProvision("gcp"), "blocked gcp")
-	assert.NoError(t, bl.CheckProvision("azure"))
+	assert.EqualError(t, bl.CheckProvision(ctx("aws")), "blocked aws")
+	assert.EqualError(t, bl.CheckProvision(ctx("gcp")), "blocked gcp")
+	assert.NoError(t, bl.CheckProvision(ctx("azure")))
 }
 
 // --- operation-type checks ---
@@ -86,22 +91,22 @@ func TestParseRule_PlanList(t *testing.T) {
 func TestCheckUpdate(t *testing.T) {
 	bl, err := parseInline("update", `"update blocked for {plan}","plan=aws"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckUpdate("aws"), "update blocked for aws")
-	assert.NoError(t, bl.CheckUpdate("gcp"))
+	assert.EqualError(t, bl.CheckUpdate(ctx("aws")), "update blocked for aws")
+	assert.NoError(t, bl.CheckUpdate(ctx("gcp")))
 }
 
 func TestCheckPlanUpgrade(t *testing.T) {
 	bl, err := parseInline("planUpgrade", `"plan upgrade blocked for {plan}","plan=aws"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckPlanUpgrade("aws"), "plan upgrade blocked for aws")
-	assert.NoError(t, bl.CheckPlanUpgrade("gcp"))
+	assert.EqualError(t, bl.CheckPlanUpgrade(ctx("aws")), "plan upgrade blocked for aws")
+	assert.NoError(t, bl.CheckPlanUpgrade(ctx("gcp")))
 }
 
 func TestCheckDeprovision(t *testing.T) {
 	bl, err := parseInline("deprovision", `"deprovision blocked for {plan}","plan=gcp"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckDeprovision("gcp"), "deprovision blocked for gcp")
-	assert.NoError(t, bl.CheckDeprovision("aws"))
+	assert.EqualError(t, bl.CheckDeprovision(ctx("gcp")), "deprovision blocked for gcp")
+	assert.NoError(t, bl.CheckDeprovision(ctx("aws")))
 }
 
 // --- multi-rule and empty ---
@@ -109,15 +114,15 @@ func TestCheckDeprovision(t *testing.T) {
 func TestCheckRules_MultipleRules_FirstMatchWins(t *testing.T) {
 	bl, err := parseInline("provision", `"first","plan=aws"`, `"second","plan=aws"`)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision("aws"), "first")
+	assert.EqualError(t, bl.CheckProvision(ctx("aws")), "first")
 }
 
 func TestCheckRules_EmptyBlocklist(t *testing.T) {
 	var bl blocklist.OperationBlocklist
-	assert.NoError(t, bl.CheckProvision("aws"))
-	assert.NoError(t, bl.CheckUpdate("aws"))
-	assert.NoError(t, bl.CheckPlanUpgrade("aws"))
-	assert.NoError(t, bl.CheckDeprovision("aws"))
+	assert.NoError(t, bl.CheckProvision(ctx("aws")))
+	assert.NoError(t, bl.CheckUpdate(ctx("aws")))
+	assert.NoError(t, bl.CheckPlanUpgrade(ctx("aws")))
+	assert.NoError(t, bl.CheckDeprovision(ctx("aws")))
 }
 
 // --- PlanValidator: unknown plan names are rejected at validation time ---
@@ -155,18 +160,18 @@ deprovision: '"deprovisioning is blocked for {plan}","plan=gcp"'
 	bl, err = bl.WithPlanValidator(testPlans)
 	require.NoError(t, err)
 
-	assert.EqualError(t, bl.CheckProvision("aws"), "provisioning is blocked for aws plan")
-	assert.EqualError(t, bl.CheckProvision("gcp"), "provisioning is blocked for gcp plan")
-	assert.NoError(t, bl.CheckProvision("azure"))
+	assert.EqualError(t, bl.CheckProvision(ctx("aws")), "provisioning is blocked for aws plan")
+	assert.EqualError(t, bl.CheckProvision(ctx("gcp")), "provisioning is blocked for gcp plan")
+	assert.NoError(t, bl.CheckProvision(ctx("azure")))
 
-	assert.EqualError(t, bl.CheckUpdate("trial"), "update is blocked for trial")
-	assert.NoError(t, bl.CheckUpdate("aws"))
+	assert.EqualError(t, bl.CheckUpdate(ctx("trial")), "update is blocked for trial")
+	assert.NoError(t, bl.CheckUpdate(ctx("aws")))
 
-	assert.EqualError(t, bl.CheckPlanUpgrade("aws"), "plan upgrade is blocked for aws")
-	assert.NoError(t, bl.CheckPlanUpgrade("gcp"))
+	assert.EqualError(t, bl.CheckPlanUpgrade(ctx("aws")), "plan upgrade is blocked for aws")
+	assert.NoError(t, bl.CheckPlanUpgrade(ctx("gcp")))
 
-	assert.EqualError(t, bl.CheckDeprovision("gcp"), "deprovisioning is blocked for gcp")
-	assert.NoError(t, bl.CheckDeprovision("aws"))
+	assert.EqualError(t, bl.CheckDeprovision(ctx("gcp")), "deprovisioning is blocked for gcp")
+	assert.NoError(t, bl.CheckDeprovision(ctx("aws")))
 }
 
 // --- hardening: empty/blank string rules are no-ops ---
@@ -176,10 +181,10 @@ func TestReadFromFile_EmptyFile(t *testing.T) {
 	path := writeYAML(t, "")
 	bl, err := blocklist.ReadFromFile(path)
 	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision("trial"))
-	assert.NoError(t, bl.CheckUpdate("trial"))
-	assert.NoError(t, bl.CheckPlanUpgrade("trial"))
-	assert.NoError(t, bl.CheckDeprovision("trial"))
+	assert.NoError(t, bl.CheckProvision(ctx("trial")))
+	assert.NoError(t, bl.CheckUpdate(ctx("trial")))
+	assert.NoError(t, bl.CheckPlanUpgrade(ctx("trial")))
+	assert.NoError(t, bl.CheckDeprovision(ctx("trial")))
 }
 
 func TestReadFromFile_EmptyKeysAreNoOp(t *testing.T) {
@@ -187,8 +192,8 @@ func TestReadFromFile_EmptyKeysAreNoOp(t *testing.T) {
 	path := writeYAML(t, "provision:\ndeprovision:\n")
 	bl, err := blocklist.ReadFromFile(path)
 	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision("trial"))
-	assert.NoError(t, bl.CheckDeprovision("trial"))
+	assert.NoError(t, bl.CheckProvision(ctx("trial")))
+	assert.NoError(t, bl.CheckDeprovision(ctx("trial")))
 }
 
 func TestParseRule_EmptyStringSingleIsNoOp(t *testing.T) {
@@ -196,7 +201,7 @@ func TestParseRule_EmptyStringSingleIsNoOp(t *testing.T) {
 	path := writeYAML(t, "provision: ''\n")
 	bl, err := blocklist.ReadFromFile(path)
 	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision("trial"))
+	assert.NoError(t, bl.CheckProvision(ctx("trial")))
 }
 
 func TestParseRule_EmptyStringInListIsNoOp(t *testing.T) {
@@ -206,8 +211,8 @@ func TestParseRule_EmptyStringInListIsNoOp(t *testing.T) {
 	require.NoError(t, err)
 	bl, err = bl.WithPlanValidator(testPlans)
 	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision("trial"), "blocked")
-	assert.NoError(t, bl.CheckProvision("aws"))
+	assert.EqualError(t, bl.CheckProvision(ctx("trial")), "blocked")
+	assert.NoError(t, bl.CheckProvision(ctx("aws")))
 }
 
 // --- hardening: empty message is a parse error ---
@@ -226,18 +231,18 @@ func TestParseRule_EmptyMessageWithPlanIsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// --- hardening: message only (no plan filter) triggers for all operations ---
+// --- hardening: message only (no filters) is a no-op ---
 
 func TestParseRule_MessageOnlyIsNoOp(t *testing.T) {
-	// No plan filter → no-op, does not block any plan.
+	// No filters at all → no-op, does not block any plan.
 	path := writeYAML(t, "provision: '\"blocked\"'\n")
 	bl, err := blocklist.ReadFromFile(path)
 	require.NoError(t, err)
 	bl, err = bl.WithPlanValidator(testPlans)
 	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision("trial"))
-	assert.NoError(t, bl.CheckProvision("aws"))
-	assert.NoError(t, bl.CheckProvision("gcp"))
+	assert.NoError(t, bl.CheckProvision(ctx("trial")))
+	assert.NoError(t, bl.CheckProvision(ctx("aws")))
+	assert.NoError(t, bl.CheckProvision(ctx("gcp")))
 }
 
 // --- hardening: WithPlanValidator rejects unknown plan names ---
@@ -257,6 +262,68 @@ func TestWithPlanValidator_KnownPlanNameIsAccepted(t *testing.T) {
 	require.NoError(t, err)
 	_, err = bl.WithPlanValidator(testPlans)
 	assert.NoError(t, err)
+}
+
+// --- GA!= exclusion ---
+
+func TestGAExclusion_BlocksOtherGA(t *testing.T) {
+	// Rule with GA!=X blocks GAs other than X.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
+	require.NoError(t, err)
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
+}
+
+func TestGAExclusion_SkipsExcludedGA(t *testing.T) {
+	// The excluded GA is not blocked.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
+	require.NoError(t, err)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exempted-ga"}))
+}
+
+func TestGAExclusion_WithPlan_AllCombinations(t *testing.T) {
+	// plan=trial + GA!=X: only trial plan for non-X GAs is blocked.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
+	require.NoError(t, err)
+
+	// trial + other GA → blocked
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
+	// trial + exempted GA → not blocked
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exempted-ga"}))
+	// aws + other GA → not blocked (plan doesn't match)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "aws", GlobalAccountID: "other-ga"}))
+}
+
+func TestGAExclusion_OnlyGANoPlan(t *testing.T) {
+	// GA!=X without plan= blocks all plans for non-X GAs.
+	bl, err := parseInline("provision", `"blocked","GA!=exempted-ga"`)
+	require.NoError(t, err)
+
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "aws", GlobalAccountID: "other-ga"}), "blocked")
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exempted-ga"}))
+}
+
+func TestGAExclusion_CaseInsensitive(t *testing.T) {
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=ExemptedGA"`)
+	require.NoError(t, err)
+
+	// case-insensitive match — exempted regardless of casing
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exemptedga"}))
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "EXEMPTEDGA"}))
+}
+
+func TestGAExclusion_EmptyValue_IsError(t *testing.T) {
+	// GA!= with no value must be rejected at parse time.
+	path := writeYAML(t, "provision: '\"blocked\",\"GA!=\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
+
+func TestGAExclusion_EmptyGAInContext_DoesNotMatchExclusion(t *testing.T) {
+	// When the operation has no GA (empty string), the exclusion does not apply.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
+	require.NoError(t, err)
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: ""}), "blocked")
 }
 
 // --- error cases ---
@@ -285,7 +352,14 @@ func TestParseRule_TokenWithoutEquals(t *testing.T) {
 }
 
 func TestParseRule_UnknownKey(t *testing.T) {
+	// GA= (positive equality) is not supported — only GA!= negation is.
 	path := writeYAML(t, "provision:\n  - '\"msg\",\"GA=id1\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
+
+func TestParseRule_UnknownNegationKey(t *testing.T) {
+	path := writeYAML(t, "provision:\n  - '\"msg\",\"SUBACCOUNT!=id1\"'\n")
 	_, err := blocklist.ReadFromFile(path)
 	assert.Error(t, err)
 }

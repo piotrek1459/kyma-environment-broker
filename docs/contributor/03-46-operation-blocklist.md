@@ -24,27 +24,32 @@ If you don't set **operationBlocklist** or leave it empty, no operations are blo
 
 ## Rule Format
 
-Each rule is a compact string with up to two quoted tokens separated by a comma:
+Each rule is a compact string with quoted tokens separated by commas:
 
 ```
 '"<message>"'
 '"<message>","plan=<plan1>,<plan2>"'
+'"<message>","plan=<plan1>,<plan2>","GA!=<globalAccountID>"'
+'"<message>","GA!=<globalAccountID>"'
 ```
 
 Use the following rule components:
 
 - message — required, non-empty text string returned to the caller when the rule matches. Supports the `{plan}` placeholder, which is replaced with the actual plan name at runtime.
-- plan filter — required comma-separated list of plan names to match. A rule without a plan filter is a no-op.
+- plan filter — optional comma-separated list of plan names to match. When omitted together with all other filters, the rule is a no-op.
+- `GA!=<globalAccountID>` — optional GlobalAccount exclusion. When present, the rule does **not** apply to operations from the specified GlobalAccount. All other GlobalAccounts are still blocked.
+
+> **Note:** A rule with no filters at all (message only) is a no-op. At least one filter (`plan=` or `GA!=`) is required for a rule to take effect.
 
 ### Examples
 
 ```yaml
-# Block provisioning for all plans
+# Block provisioning for all plans (no filter → no-op)
 provision: '"Provisioning is temporarily disabled"'
 ```
 
 > ### Note:
-> This rule has no plan filter and is therefore a no-op. A plan filter is required for a rule to take effect.
+> This rule has no filters and is therefore a no-op.
 
 ```yaml
 # Block provisioning for trial only
@@ -57,7 +62,19 @@ update:
 # Block plan upgrade and deprovision for trial
 planUpgrade: '"Plan upgrade is not allowed for {plan}","plan=trial"'
 deprovision: '"Deprovisioning is blocked for {plan}","plan=trial"'
+
+# Block trial provisioning for everyone except one GlobalAccount
+provision: '"Trial plan temporarily suspended.","plan=trial","GA!=12234243534"'
+
+# Block trial provisioning for all GlobalAccounts except two (use multiple rules,
+# first match wins — so list the exceptions as separate rules that evaluate before
+# the blocking rule, or model this as a single rule per exempt account)
+provision:
+  - '"Trial plan temporarily suspended.","plan=trial","GA!=11111111111"'
 ```
+
+> ### Note:
+> Each rule with `GA!=` exempts only one GlobalAccount. To exempt multiple accounts, add one rule per account. Rules are evaluated in order and the first matching rule returns the error — but a rule whose `GA!=` exclusion matches the current account is skipped, so all rules are checked.
 
 ## Supported Operations
 
@@ -77,12 +94,24 @@ KEB validates the blocklist at startup. The following configurations are rejecte
 | `'""'` | Empty message |
 | `'"msg","plan="'` | Empty plan filter |
 | `'"msg","plan=aws,,gcp"'` | Empty segment in plan list |
+| `'"msg","GA!="'` | Empty GA value |
 | `'"msg",'` | Trailing comma |
 | Unknown top-level key (for example, `planUpgarde`) | Typo detection |
 | Unknown plan name (for example, `trail`) | Caught by plan validator at startup |
 
-A rule with no plan filter (`'"msg"'`) or an empty string rule (`''`) or an empty key (for example, `provision:`) is a no-op and does not cause an error.
+A rule with no filters (`'"msg"'`) or an empty string rule (`''`) or an empty key (for example, `provision:`) is a no-op and does not cause an error.
+
+> **Note:** `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID results in the rule never matching its exclusion, effectively blocking all accounts for that plan.
 
 ## Plan Names
 
 Valid plan names are the same as those enabled using **broker.enablePlans**, for example, `aws`, `azure`, `gcp`, `trial`, `free`. A typo in a plan name (for example, `trail` instead of `trial`) causes a startup error.
+
+## Extending the Rule Format
+
+The rule format is designed for extensibility. Future filters follow the same token pattern:
+
+- Positive filter (`key=value`): rule applies only when the attribute matches
+- Negation filter (`key!=value`): rule does not apply when the attribute matches
+
+To add a SubAccount exclusion (`SA!=<subAccountID>`), extend `OperationContext` and `Rule` in `internal/blocklist/blocklist.go` following the existing `GA!=` pattern.
