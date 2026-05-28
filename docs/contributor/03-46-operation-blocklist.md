@@ -52,6 +52,8 @@ Each rule is a compact string with quoted tokens separated by commas:
 - A single exemption: `GA!=ga-exempt`
 - Multiple exemptions: `GA!=ga-exempt-1,ga-exempt-2` — neither account is blocked by this rule
 
+> **Note:** GlobalAccount ID matching is case-insensitive — `GA=7F3A9B1C-12D4-4E5F-A678-9B0CDE123456` matches `7f3a9b1c-12d4-4e5f-a678-9b0cde123456`.
+
 > **Note:** `GA=` and `GA!=` require `plan=` to be present. A rule with a GA filter but no plan filter is rejected at startup.
 
 > **Note:** A rule with only a message and no filters is a no-op and does not cause an error.
