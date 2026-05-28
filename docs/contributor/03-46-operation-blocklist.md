@@ -70,14 +70,14 @@ provision: '"Trial plan temporarily suspended.","plan=trial","GA!=12234243534"'
 # Block trial provisioning for one specific GlobalAccount only
 provision: '"Trial plan temporarily suspended.","plan=trial","GA=12234243534"'
 
-# Block trial provisioning for all GlobalAccounts except two
+# Block trial provisioning for two specific GlobalAccounts (use GA= and multiple rules)
 provision:
-  - '"Trial plan temporarily suspended.","plan=trial","GA!=11111111111"'
-  - '"Trial plan temporarily suspended.","plan=trial","GA!=22222222222"'
+  - '"Trial plan temporarily suspended.","plan=trial","GA=11111111111"'
+  - '"Trial plan temporarily suspended.","plan=trial","GA=22222222222"'
 ```
 
 > ### Note:
-> Each `GA!=` token exempts exactly one GlobalAccount. To exempt multiple accounts, add one rule per account. All rules are always evaluated — a rule whose `GA!=` exclusion matches the current account is skipped and the next rule is checked. An account is blocked only if **all** rules match it (none of the `GA!=` exclusions apply).
+> `GA!=` exempts exactly one GlobalAccount — adding a second rule with a different `GA!=` does **not** exempt that account, because first-match-wins means the first rule still blocks it. To block a specific set of accounts, use `GA=` with one rule per account instead.
 
 ## Supported Operations
 
