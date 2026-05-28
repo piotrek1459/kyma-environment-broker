@@ -293,14 +293,11 @@ func TestGAExclusion_WithPlan_AllCombinations(t *testing.T) {
 	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "aws", GlobalAccountID: "other-ga"}))
 }
 
-func TestGAExclusion_OnlyGANoPlan(t *testing.T) {
-	// GA!=X without plan= blocks all plans for non-X GAs.
-	bl, err := parseInline("provision", `"blocked","GA!=exempted-ga"`)
-	require.NoError(t, err)
-
-	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
-	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "aws", GlobalAccountID: "other-ga"}), "blocked")
-	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exempted-ga"}))
+func TestGAExclusion_OnlyGANoPlan_IsError(t *testing.T) {
+	// GA!= without plan= must be rejected — plan filter is required.
+	path := writeYAML(t, "provision: '\"blocked\",\"GA!=exempted-ga\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
 }
 
 func TestGAExclusion_CaseInsensitive(t *testing.T) {
@@ -324,6 +321,63 @@ func TestGAExclusion_EmptyGAInContext_DoesNotMatchExclusion(t *testing.T) {
 	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
 	require.NoError(t, err)
 	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: ""}), "blocked")
+}
+
+// --- GA= inclusion ---
+
+func TestGAInclusion_BlocksMatchingGA(t *testing.T) {
+	// Rule with GA=X blocks only GA X.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
+	require.NoError(t, err)
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "targeted-ga"}), "blocked")
+}
+
+func TestGAInclusion_SkipsOtherGA(t *testing.T) {
+	// Rule with GA=X does not block other GAs.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
+	require.NoError(t, err)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}))
+}
+
+func TestGAInclusion_WithPlan_AllCombinations(t *testing.T) {
+	// plan=trial + GA=X: only trial plan for GA X is blocked.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
+	require.NoError(t, err)
+
+	// trial + targeted GA → blocked
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "targeted-ga"}), "blocked")
+	// trial + other GA → not blocked
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}))
+	// aws + targeted GA → not blocked (plan doesn't match)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "aws", GlobalAccountID: "targeted-ga"}))
+}
+
+func TestGAInclusion_OnlyGANoPlan_IsError(t *testing.T) {
+	// GA= without plan= must be rejected — plan filter is required.
+	path := writeYAML(t, "provision: '\"blocked\",\"GA=targeted-ga\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
+
+func TestGAInclusion_CaseInsensitive(t *testing.T) {
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=TargetedGA"`)
+	require.NoError(t, err)
+
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "targetedga"}), "blocked")
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "TARGETEDGA"}), "blocked")
+}
+
+func TestGAInclusion_EmptyValue_IsError(t *testing.T) {
+	path := writeYAML(t, "provision: '\"blocked\",\"GA=\"'\n")
+	_, err := blocklist.ReadFromFile(path)
+	assert.Error(t, err)
+}
+
+func TestGAInclusion_EmptyGAInContext_NoMatch(t *testing.T) {
+	// When the operation has no GA (empty string), GA= filter does not match.
+	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
+	require.NoError(t, err)
+	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: ""}))
 }
 
 // --- error cases ---
@@ -352,8 +406,8 @@ func TestParseRule_TokenWithoutEquals(t *testing.T) {
 }
 
 func TestParseRule_UnknownKey(t *testing.T) {
-	// GA= (positive equality) is not supported — only GA!= negation is.
-	path := writeYAML(t, "provision:\n  - '\"msg\",\"GA=id1\"'\n")
+	// Unknown keys with = operator are rejected.
+	path := writeYAML(t, "provision:\n  - '\"msg\",\"SUBACCOUNT=id1\"'\n")
 	_, err := blocklist.ReadFromFile(path)
 	assert.Error(t, err)
 }

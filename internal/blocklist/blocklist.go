@@ -36,6 +36,7 @@ type OperationContext struct {
 type Rule struct {
 	Message              string
 	Plan                 string // empty = match all plans
+	IncludeGlobalAccount string // GA= value; empty = no filter
 	ExcludeGlobalAccount string // GA!= value; empty = no exclusion
 }
 
@@ -47,9 +48,12 @@ type Rule struct {
 //	'"message","plan=aws,gcp"'
 //	'"message","plan=trial","GA!=12345"'
 //	'"message","GA!=12345"'
+//	'"message","plan=trial","GA=12345"'
+//	'"message","GA=12345"'
 //
 // Supported filter tokens:
 //   - plan=<name1>,<name2>  — match specific plans (comma-separated)
+//   - GA=<globalAccountID>  — match only the specified GlobalAccount
 //   - GA!=<globalAccountID> — exclude a GlobalAccount from being blocked
 func parseRule(s string) (Rule, error) {
 	if strings.TrimSpace(s) == "" {
@@ -104,9 +108,17 @@ func parseRule(s string) (Rule, error) {
 				}
 			}
 			r.Plan = val
+		case "GA":
+			if val == "" {
+				return Rule{}, fmt.Errorf("empty GA value in rule %q", s)
+			}
+			r.IncludeGlobalAccount = val
 		default:
-			return Rule{}, fmt.Errorf("unknown key %q in rule %q (allowed: \"plan=\", \"GA!=\")", key, s)
+			return Rule{}, fmt.Errorf("unknown key %q in rule %q (allowed: \"plan=\", \"GA=\", \"GA!=\")", key, s)
 		}
+	}
+	if (r.IncludeGlobalAccount != "" || r.ExcludeGlobalAccount != "") && r.Plan == "" {
+		return Rule{}, fmt.Errorf("GA filter requires plan= in rule %q", s)
 	}
 	return r, nil
 }
@@ -284,6 +296,9 @@ func checkRules(rules []Rule, pv PlanValidator, ctx OperationContext) error {
 // Each guard returns false when its condition excludes this operation from the rule.
 func matchesRule(r Rule, pv PlanValidator, ctx OperationContext) bool {
 	if r.Plan != "" && !matchesPlan(pv, r.Plan, ctx.PlanName) {
+		return false
+	}
+	if r.IncludeGlobalAccount != "" && !strings.EqualFold(r.IncludeGlobalAccount, ctx.GlobalAccountID) {
 		return false
 	}
 	if r.ExcludeGlobalAccount != "" && strings.EqualFold(r.ExcludeGlobalAccount, ctx.GlobalAccountID) {
