@@ -33,51 +33,104 @@ Each rule is a compact string with quoted tokens separated by commas:
 '"<message>","plan=<plan1>,<plan2>","GA!=<globalAccountID>"'
 ```
 
-Use the following rule components:
+### Tokens
 
-- message — required, non-empty text string returned to the caller when the rule matches. Supports the `{plan}` placeholder, which is replaced with the actual plan name at runtime.
-- `plan=` — required when using any GA filter. Comma-separated list of plan names to match. A rule with no filters at all (message only) is a no-op.
-- `GA=<globalAccountID>` — optional GlobalAccount inclusion. When present, the rule applies **only** to the specified GlobalAccount. All other GlobalAccounts are not blocked by this rule.
-- `GA!=<globalAccountID>` — optional GlobalAccount exclusion. When present, the rule does **not** apply to the specified GlobalAccount. All other GlobalAccounts are still blocked.
+**message** — required. Non-empty text returned to the caller when the rule matches. Supports the `{plan}` placeholder, which KEB replaces with the actual plan name at runtime.
+
+**`plan=<plan1>,<plan2>`** — required when any GA filter is present. Comma-separated list of plan names. The rule matches only operations on one of the listed plans.
+
+- A single plan: `plan=trial`
+- Multiple plans: `plan=trial,aws` — matches both trial and aws
+
+**`GA=<globalAccountID>`** — optional. The rule matches **only** the specified GlobalAccount. All other GlobalAccounts are not blocked by this rule.
+
+**`GA!=<globalAccountID>`** — optional. The rule does **not** match the specified GlobalAccount. All other GlobalAccounts are blocked by this rule.
+
+> **Note:** `GA=` and `GA!=` each accept a single GlobalAccount ID. To target multiple accounts, use multiple rules. See [Multiple Rules](#multiple-rules).
 
 > **Note:** `GA=` and `GA!=` require `plan=` to be present. A rule with a GA filter but no plan filter is rejected at startup.
 
-### Examples
+> **Note:** A rule with only a message and no filters is a no-op and does not cause an error.
+
+### Filter Semantics
+
+All filters in a single rule are combined with **AND** — a rule matches only when every filter condition is satisfied:
+
+| `plan=` | `GA=` / `GA!=` | matches when |
+|---|---|---|
+| `plan=trial` | — | plan is trial |
+| `plan=trial` | `GA=X` | plan is trial **and** GA is X |
+| `plan=trial` | `GA!=X` | plan is trial **and** GA is not X |
+
+`GA=` means "block only this GA" — the rule is a targeted block for one account.
+
+`GA!=` means "block everyone except this GA" — the rule is a broad suspension with a single exemption.
+
+## Multiple Rules
+
+Rules within an operation type are evaluated in order. **The first matching rule wins** — evaluation stops and its message is returned. Rules that do not match are skipped.
+
+This means:
+- More specific rules (with `GA=`) should come **before** broader ones (with `plan=` only).
+- `GA!=` with two different accounts in separate rules does **not** create two exemptions — see the pitfall below.
+
+### Patterns
+
+**Block specific accounts, allow everyone else:**
 
 ```yaml
-# Block provisioning for all plans (no filter → no-op)
-provision: '"Provisioning is temporarily disabled"'
-```
-
-> ### Note:
-> This rule has no filters and is therefore a no-op.
-
-```yaml
-# Block provisioning for trial only
-provision: '"Provisioning of the {plan} plan is blocked","plan=trial"'
-
-# Block update for multiple plans
-update:
-  - '"Updates are blocked for {plan}","plan=trial,free"'
-
-# Block plan upgrade and deprovision for trial
-planUpgrade: '"Plan upgrade is not allowed for {plan}","plan=trial"'
-deprovision: '"Deprovisioning is blocked for {plan}","plan=trial"'
-
-# Block trial provisioning for everyone except one GlobalAccount
-provision: '"Trial plan temporarily suspended.","plan=trial","GA!=12234243534"'
-
-# Block trial provisioning for one specific GlobalAccount only
-provision: '"Trial plan temporarily suspended.","plan=trial","GA=12234243534"'
-
-# Block trial provisioning for two specific GlobalAccounts (use GA= and multiple rules)
 provision:
-  - '"Trial plan temporarily suspended.","plan=trial","GA=11111111111"'
-  - '"Trial plan temporarily suspended.","plan=trial","GA=22222222222"'
+  - '"Blocked for GA1","plan=trial","GA=ga-1"'
+  - '"Blocked for GA2","plan=trial","GA=ga-2"'
 ```
 
-> ### Note:
-> `GA!=` exempts exactly one GlobalAccount — adding a second rule with a different `GA!=` does **not** exempt that account, because first-match-wins means the first rule still blocks it. To block a specific set of accounts, use `GA=` with one rule per account instead.
+| plan | GA | result |
+|---|---|---|
+| trial | `ga-1` | blocked — "Blocked for GA1" |
+| trial | `ga-2` | blocked — "Blocked for GA2" |
+| trial | anything else | allowed |
+
+**Block everyone except one account (broad suspension with exemption):**
+
+```yaml
+provision:
+  - '"Trial suspended","plan=trial","GA!=ga-exempt"'
+```
+
+| plan | GA | result |
+|---|---|---|
+| trial | `ga-exempt` | allowed |
+| trial | anything else | blocked — "Trial suspended" |
+
+**Catch-all after specific rules:**
+
+```yaml
+provision:
+  - '"VIP account","plan=trial","GA=ga-vip"'   # blocks only ga-vip
+  - '"Trial suspended for {plan}","plan=trial"' # catch-all for everyone else
+```
+
+| plan | GA | result |
+|---|---|---|
+| trial | `ga-vip` | blocked — "VIP account" (rule 1 matches) |
+| trial | anything else | blocked — "Trial suspended for trial" (rule 1 doesn't match, rule 2 does) |
+| aws | anything | allowed (neither rule matches) |
+
+**`GA!=` pitfall — does NOT create multiple exemptions:**
+
+```yaml
+provision:
+  - '"Trial suspended","plan=trial","GA!=ga-exempt-1"'
+  - '"Trial suspended","plan=trial","GA!=ga-exempt-2"'
+```
+
+| plan | GA | result | why |
+|---|---|---|---|
+| trial | `ga-exempt-1` | **blocked** | rule 1 skips, rule 2 matches |
+| trial | `ga-exempt-2` | **blocked** | rule 1 matches |
+| trial | anything else | **blocked** | rule 1 matches |
+
+To exempt multiple accounts use `GA=` (block specific accounts) instead of `GA!=`.
 
 ## Supported Operations
 
@@ -99,15 +152,15 @@ KEB validates the blocklist at startup. The following configurations are rejecte
 | `'"msg","plan=aws,,gcp"'` | Empty segment in plan list |
 | `'"msg","GA="'` | Empty GA value |
 | `'"msg","GA!="'` | Empty GA value |
-| `'"msg","GA=X"'` | GA filter without plan= |
-| `'"msg","GA!=X"'` | GA filter without plan= |
+| `'"msg","GA=X"'` | GA filter without `plan=` |
+| `'"msg","GA!=X"'` | GA filter without `plan=` |
 | `'"msg",'` | Trailing comma |
 | Unknown top-level key (for example, `planUpgarde`) | Typo detection |
 | Unknown plan name (for example, `trail`) | Caught by plan validator at startup |
 
-A rule with no filters (`'"msg"'`) or an empty string rule (`''`) or an empty key (for example, `provision:`) is a no-op and does not cause an error.
+A rule with only a message (`'"msg"'`), an empty string rule (`''`), or an empty key (for example, `provision:`) is a no-op and does not cause an error.
 
-> **Note:** `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping anyone, effectively blocking all accounts. An incorrect ID in `GA=` results in the rule never matching, effectively blocking no one.
+> **Note:** `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping anyone — everyone is blocked. An incorrect ID in `GA=` results in the rule never matching — no one is blocked by that rule.
 
 ## Plan Names
 
