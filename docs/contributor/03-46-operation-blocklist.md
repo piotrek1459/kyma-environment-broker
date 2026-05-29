@@ -39,24 +39,27 @@ Each rule is a compact string with quoted tokens separated by commas:
 
 **`plan=<plan1>,<plan2>`** — required when any GA filter is present. Comma-separated list of plan names. The rule matches only operations on one of the listed plans.
 
-- A single plan: `plan=trial`
-- Multiple plans: `plan=trial,aws` — matches both trial and aws
+* A single plan: `plan=trial`
+* Multiple plans: `plan=trial,aws` — matches both trial and aws
 
 **`GA=<id1>,<id2>`** — optional. The rule matches **only** the specified GlobalAccounts. All other GlobalAccounts are not blocked by this rule.
 
-- A single account: `GA=ga-vip`
-- Multiple accounts: `GA=ga-vip-1,ga-vip-2` — matches either account
+* A single account: `GA=ga-vip`
+* Multiple accounts: `GA=ga-vip-1,ga-vip-2` — matches either account
 
 **`GA!=<id1>,<id2>`** — optional. The rule does **not** match the specified GlobalAccounts. All other GlobalAccounts are blocked by this rule.
 
-- A single exemption: `GA!=ga-exempt`
-- Multiple exemptions: `GA!=ga-exempt-1,ga-exempt-2` — neither account is blocked by this rule
+* A single exemption: `GA!=ga-exempt`
+* Multiple exemptions: `GA!=ga-exempt-1,ga-exempt-2` — neither account is blocked by this rule
 
-> **Note:** GlobalAccount ID matching is case-insensitive — `GA=7F3A9B1C-12D4-4E5F-A678-9B0CDE123456` matches `7f3a9b1c-12d4-4e5f-a678-9b0cde123456`.
+> ### Note:
+> GlobalAccount ID matching is case-insensitive — `GA=7F3A9B1C-12D4-4E5F-A678-9B0CDE123456` matches `7f3a9b1c-12d4-4e5f-a678-9b0cde123456`.
 
-> **Note:** `GA=` and `GA!=` require `plan=` to be present. A rule with a GA filter but no plan filter is rejected at startup.
+> ### Note:
+> `GA=` and `GA!=` require `plan=` to be present. A rule with a GA filter but no plan filter is rejected at startup.
 
-> **Note:** A rule with only a message and no filters is a no-op and does not cause an error.
+> ### Note:
+> A rule with only a message and no filters is a no-op and does not cause an error.
 
 ### Filter Semantics
 
@@ -152,7 +155,8 @@ KEB validates the blocklist at startup. The following configurations are rejecte
 
 A rule with only a message (`'"msg"'`), an empty string rule (`''`), or an empty key (for example, `provision:`) is a no-op and does not cause an error.
 
-> **Note:** `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping that account — it will be blocked. An incorrect ID in `GA=` results in the rule never matching — no one is blocked by that rule.
+> ### Note:
+> `GA=` and `GA!=` values are **not** validated at startup (unlike plan names). An incorrect GlobalAccount ID in `GA!=` results in the rule never skipping that account — it will be blocked. An incorrect ID in `GA=` results in the rule never matching — no one is blocked by that rule.
 
 ## Plan Names
 
@@ -162,7 +166,7 @@ Valid plan names are the same as those enabled using **broker.enablePlans**, for
 
 The rule format is designed for extensibility. Future filters follow the same token pattern:
 
-- Positive filter (`key=value`): rule applies only when the attribute matches
-- Negation filter (`key!=value`): rule does not apply when the attribute matches
+* Positive filter (`key=value`): rule applies only when the attribute matches
+* Negation filter (`key!=value`): rule does not apply when the attribute matches
 
 To add a SubAccount filter (`SA=` / `SA!=<subAccountID>`), extend `OperationContext` and `Rule` in `internal/blocklist/blocklist.go` following the existing `GA=` / `GA!=` pattern.
