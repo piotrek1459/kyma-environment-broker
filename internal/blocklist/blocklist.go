@@ -47,9 +47,7 @@ type Rule struct {
 //	'"message","plan=aws"'
 //	'"message","plan=aws,gcp"'
 //	'"message","plan=trial","GA!=12345"'
-//	'"message","GA!=12345"'
 //	'"message","plan=trial","GA=12345"'
-//	'"message","GA=12345"'
 //
 // Supported filter tokens:
 //   - plan=<name1>,<name2>  — match specific plans (comma-separated)
@@ -86,8 +84,9 @@ func parseRule(s string) (Rule, error) {
 					return Rule{}, fmt.Errorf("empty GA value in rule %q", s)
 				}
 				parts := strings.Split(val, ",")
-				for _, p := range parts {
-					if strings.TrimSpace(p) == "" {
+				for i, p := range parts {
+					parts[i] = strings.TrimSpace(p)
+					if parts[i] == "" {
 						return Rule{}, fmt.Errorf("empty GA segment in rule %q", s)
 					}
 				}
@@ -119,8 +118,9 @@ func parseRule(s string) (Rule, error) {
 				return Rule{}, fmt.Errorf("empty GA value in rule %q", s)
 			}
 			parts := strings.Split(val, ",")
-			for _, p := range parts {
-				if strings.TrimSpace(p) == "" {
+			for i, p := range parts {
+				parts[i] = strings.TrimSpace(p)
+				if parts[i] == "" {
 					return Rule{}, fmt.Errorf("empty GA segment in rule %q", s)
 				}
 			}
