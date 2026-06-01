@@ -298,7 +298,7 @@ func (b *OperationBlocklist) CheckDeprovision(ctx OperationContext) error {
 func checkRules(rules []Rule, pv PlanValidator, ctx OperationContext) error {
 	for _, r := range rules {
 		if matchesRule(r, pv, ctx) {
-			return fmt.Errorf("%s", formatMessage(r.Message, ctx.PlanName))
+			return fmt.Errorf("%s", formatMessage(r.Message, ctx))
 		}
 	}
 	return nil
@@ -350,7 +350,9 @@ func matchesPlan(pv PlanValidator, rulePlan, operationPlan string) bool {
 	return false
 }
 
-// formatMessage replaces {plan} placeholder with the actual plan name.
-func formatMessage(msg, planName string) string {
-	return strings.ReplaceAll(msg, "{plan}", planName)
+// formatMessage replaces {plan} and {globalAccount} placeholders.
+func formatMessage(msg string, ctx OperationContext) string {
+	msg = strings.ReplaceAll(msg, "{plan}", ctx.PlanName)
+	msg = strings.ReplaceAll(msg, "{globalAccount}", ctx.GlobalAccountID)
+	return msg
 }

@@ -78,6 +78,12 @@ func TestParseRule_WithPlan(t *testing.T) {
 	assert.NoError(t, bl.CheckProvision(ctx("gcp")))
 }
 
+func TestParseRule_GlobalAccountPlaceholder(t *testing.T) {
+	bl, err := parseInline("provision", `"blocked {plan} for {globalAccount}","plan=trial","GA=ga-123"`)
+	require.NoError(t, err)
+	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "ga-123"}), "blocked trial for ga-123")
+}
+
 func TestParseRule_PlanList(t *testing.T) {
 	bl, err := parseInline("provision", `"blocked {plan}","plan=aws,gcp"`)
 	require.NoError(t, err)

@@ -35,7 +35,7 @@ Each rule is a compact string with quoted tokens separated by commas:
 
 ### Tokens
 
-**message** — required. Non-empty text returned to the caller when the operation is blocked. Supports the `{plan}` placeholder, which KEB replaces with the actual plan name at runtime. The `{plan}` placeholder is the only one supported — the GlobalAccount ID is not available as a placeholder in the message.
+**message** — required. Non-empty text returned to the caller when the operation is blocked. Supports the `{plan}` and `{globalAccount}` placeholders, which KEB replaces with the actual plan name and GlobalAccount ID at runtime.
 
 **`plan=<plan1>,<plan2>`** — required when any GA filter is present. Comma-separated list of plan names. The operation is blocked only if its plan is one of the listed plans.
 
