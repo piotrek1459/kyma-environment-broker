@@ -35,22 +35,21 @@ Each rule is a compact string with quoted tokens separated by commas:
 
 ### Tokens
 
-**message** — required. Non-empty text returned to the caller when the operation is blocked. Supports the **{plan}** and **{globalAccount}** placeholders, which KEB replaces with the actual plan name and GlobalAccount ID at runtime.
+The following tokens define the rule parameters:
 
-`plan=<plan1>,<plan2>` — required when any GA filter is present. Comma-separated list of plan names. The operation is blocked only if its plan is one of the listed plans.
+* **`{message}`** — required. Non-empty text returned to the caller when the operation is blocked. Supports the `{plan}` and `{globalAccount}` placeholders, which KEB replaces with the actual plan name and GlobalAccount ID at runtime.
 
-* A single plan: `plan=trial`
-* Multiple plans: `plan=trial,aws` — blocks both `trial` and `aws`
+* **`plan=<plan1>,<plan2>`** — required when any GA filter is present. Comma-separated list of plan names. The operation is blocked only if its plan is one of the listed plans.
+  * A single plan: `plan=trial`
+  * Multiple plans: `plan=trial,aws` — blocks both `trial` and `aws`
 
-`GA=<id1>,<id2>` — optional. Only operations from the listed GlobalAccounts are blocked; all other GlobalAccounts are allowed.
+* **`GA=<id1>,<id2>`** — optional. Only operations from the listed GlobalAccounts are blocked; all other GlobalAccounts are allowed.
+  * A single account: `GA=<id>` — operations from this GlobalAccount are blocked; all others are allowed.
+  * Multiple accounts: `GA=<id1>,<id2>` — operations from `id1` or `id2` are blocked; all others are allowed.
 
-* A single account: `GA=<id>` — operations from this GlobalAccount are blocked; all others are allowed.
-* Multiple accounts: `GA=<id1>,<id2>` — operations from `id1` or `id2` are blocked; all others are allowed.
-
-**`GA!=<id1>,<id2>`** — optional. All GlobalAccounts except the listed ones are blocked.
-
-* A single exemption: `GA!=<id>` — all GlobalAccounts except `id` are blocked.
-* Multiple exemptions: `GA!=<id1>,<id2>` — all GlobalAccounts except `id1` and `id2` are blocked.
+* **`GA!=<id1>,<id2>`** — optional. All GlobalAccounts except the listed ones are blocked.
+  * A single exemption: `GA!=<id>` — all GlobalAccounts except `id` are blocked.
+  * Multiple exemptions: `GA!=<id1>,<id2>` — all GlobalAccounts except `id1` and `id2` are blocked.
 
 > ### Note:
 > GlobalAccount ID matching is case-insensitive — `GA=7F3A9B1C-12D4-4E5F-A678-9B0CDE123456` matches `7f3a9b1c-12d4-4e5f-a678-9b0cde123456`.
@@ -87,11 +86,11 @@ All filters in a single rule are combined with **AND** — the operation is bloc
 
 | `plan=` | `GA=` / `GA!=` | blocks when |
 |---|---|---|
-| `plan=trial` | — | plan is trial |
-| `plan=trial` | `GA=X` | plan is trial **and** GA is X |
-| `plan=trial` | `GA=X,Y` | plan is trial **and** GA is X or Y |
-| `plan=trial` | `GA!=X` | plan is trial **and** GA is not X |
-| `plan=trial` | `GA!=X,Y` | plan is trial **and** GA is neither X nor Y |
+| `plan=trial` | — | plan is `trial` |
+| `plan=trial` | `GA=X` | plan is `trial` **and** GA is X |
+| `plan=trial` | `GA=X,Y` | plan is `trial` **and** GA is X or Y |
+| `plan=trial` | `GA!=X` | plan is `trial` **and** GA is not X |
+| `plan=trial` | `GA!=X,Y` | plan is `trial` **and** GA is neither X nor Y |
 
 `GA=` — block only the listed GAs; all others are allowed.
 
@@ -114,9 +113,9 @@ provision:
 
 | plan | GA | result |
 |---|---|---|
-| trial | `ga-1` | blocked — "Blocked for GA1 and GA2" |
-| trial | `ga-2` | blocked — "Blocked for GA1 and GA2" |
-| trial | anything else | allowed |
+| `trial` | `ga-1` | blocked — "Blocked for GA1 and GA2" |
+| `trial` | `ga-2` | blocked — "Blocked for GA1 and GA2" |
+| `trial` | anything else | allowed |
 
 **Block everyone except specific accounts (broad block with exemptions):**
 
@@ -127,9 +126,9 @@ provision:
 
 | plan | GA | result |
 |---|---|---|
-| trial | `ga-exempt-1` | allowed |
-| trial | `ga-exempt-2` | allowed |
-| trial | anything else | blocked — "Trial plan is temporarily blocked" |
+| `trial` | `ga-exempt-1` | allowed |
+| `trial` | `ga-exempt-2` | allowed |
+| `trial` | anything else | blocked — "Trial plan is temporarily blocked" |
 
 **Catch-all after specific rules:**
 
@@ -141,9 +140,9 @@ provision:
 
 | plan | GA | result |
 |---|---|---|
-| trial | `ga-vip` | blocked — "VIP account" (rule 1 matches) |
-| trial | anything else | blocked — "Trial plan is temporarily blocked for trial" (rule 1 doesn't match, rule 2 does) |
-| aws | anything | allowed (neither rule matches) |
+| `trial` | `ga-vip` | blocked — "VIP account" (rule 1 matches) |
+| `trial` | anything else | blocked — "Trial plan is temporarily blocked for trial" (rule 1 doesn't match, rule 2 does) |
+| `aws` | anything | allowed (neither rule matches) |
 
 ## Supported Operations
 
