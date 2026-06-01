@@ -266,20 +266,6 @@ func TestWithPlanValidator_KnownPlanNameIsAccepted(t *testing.T) {
 
 // --- GA!= exclusion ---
 
-func TestGAExclusion_BlocksOtherGA(t *testing.T) {
-	// Rule with GA!=X blocks GAs other than X.
-	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
-	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}), "blocked")
-}
-
-func TestGAExclusion_SkipsExcludedGA(t *testing.T) {
-	// The excluded GA is not blocked.
-	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
-	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "exempted-ga"}))
-}
-
 func TestGAExclusion_WithPlan_AllCombinations(t *testing.T) {
 	// plan=trial + GA!=X: only trial plan for non-X GAs is blocked.
 	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
@@ -317,27 +303,14 @@ func TestGAExclusion_EmptyValue_IsError(t *testing.T) {
 }
 
 func TestGAExclusion_EmptyGAInContext_DoesNotMatchExclusion(t *testing.T) {
-	// When the operation has no GA (empty string), the exclusion does not apply.
+	// Defensive guard: broker validates globalaccount_id before reaching the blocklist,
+	// but if an empty GA somehow arrives, it should not be treated as an exempt account.
 	bl, err := parseInline("provision", `"blocked","plan=trial","GA!=exempted-ga"`)
 	require.NoError(t, err)
 	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: ""}), "blocked")
 }
 
 // --- GA= inclusion ---
-
-func TestGAInclusion_BlocksMatchingGA(t *testing.T) {
-	// Rule with GA=X blocks only GA X.
-	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
-	require.NoError(t, err)
-	assert.EqualError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "targeted-ga"}), "blocked")
-}
-
-func TestGAInclusion_SkipsOtherGA(t *testing.T) {
-	// Rule with GA=X does not block other GAs.
-	bl, err := parseInline("provision", `"blocked","plan=trial","GA=targeted-ga"`)
-	require.NoError(t, err)
-	assert.NoError(t, bl.CheckProvision(blocklist.OperationContext{PlanName: "trial", GlobalAccountID: "other-ga"}))
-}
 
 func TestGAInclusion_WithPlan_AllCombinations(t *testing.T) {
 	// plan=trial + GA=X: only trial plan for GA X is blocked.
