@@ -136,13 +136,13 @@ provision:
 ```yaml
 provision:
   - '"VIP account","plan=trial","GA=ga-vip"'   # blocks only ga-vip
-  - '"Trial suspended for {plan}","plan=trial"' # catch-all for everyone else
+  - '"Trial plan is temporarily blocked for {plan}","plan=trial"' # catch-all for everyone else
 ```
 
 | plan | GA | result |
 |---|---|---|
 | trial | `ga-vip` | blocked — "VIP account" (rule 1 matches) |
-| trial | anything else | blocked — "Trial suspended for trial" (rule 1 doesn't match, rule 2 does) |
+| trial | anything else | blocked — "Trial plan is temporarily blocked for trial" (rule 1 doesn't match, rule 2 does) |
 | aws | anything | allowed (neither rule matches) |
 
 ## Supported Operations
@@ -186,12 +186,14 @@ Valid plan names are the same as those enabled using **broker.enablePlans**, for
 
 ### Subaccount Move and the Update Check
 
-The `update` blocklist check uses `instance.GlobalAccountID` — the GlobalAccount ID stored at provisioning time. When a subaccount move request arrives (the incoming `ersContext.GlobalAccountID` differs from the stored value), the blocklist check runs **before** the move is applied. This means:
+When a subaccount is moved to a different GlobalAccount, the incoming `ersContext.GlobalAccountID` differs from the value stored on the instance. The `update` blocklist check runs **before** `handleSubaccountMoveRequest` applies the new GlobalAccount ID to the instance. As a result, the check is evaluated against the pre-move `instance.GlobalAccountID`:
 
-* A `GA=<new-ga>` rule does **not** block the update request that performs the move — at the time of the check, the instance still carries the old GA.
-* A `GA!=<old-ga>` rule that would normally allow the old GA is evaluated against the old GA and correctly allows the request.
+* A `GA=<new-ga>` rule does **not** block the update request that performs the move — the new GA is not yet set on the instance at the time of the check.
+* A `GA!=<old-ga>` rule that exempts the old GA correctly allows the request.
 
 After the move completes, the instance is stored with the new `GlobalAccountID` and all subsequent operations are evaluated against the new value.
+
+For all other update requests (not subaccount moves), `ersContext.GlobalAccountID` is empty and the check correctly uses `instance.GlobalAccountID`.
 
 ## Extending the Rule Format
 
