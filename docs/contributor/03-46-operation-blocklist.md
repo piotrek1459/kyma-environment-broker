@@ -37,17 +37,17 @@ Each rule is a compact string with quoted tokens separated by commas:
 
 The following tokens define the rule parameters:
 
-* **`{message}`** — required. Non-empty text returned to the caller when the operation is blocked. Supports the `{plan}` and `{globalAccount}` placeholders, which KEB replaces with the actual plan name and GlobalAccount ID at runtime.
+* **{message}** — required. Non-empty text returned to the caller when the operation is blocked. Supports the `{plan}` and `{globalAccount}` placeholders, which KEB replaces with the actual plan name and GlobalAccount ID at runtime.
 
-* **`plan=<plan1>,<plan2>`** — required when any GA filter is present. Comma-separated list of plan names. The operation is blocked only if its plan is one of the listed plans.
+* `plan=<plan1>,<plan2>` — required when any GA filter is present. Comma-separated list of plan names. The operation is blocked only if its plan is one of the listed plans.
   * A single plan: `plan=trial`
   * Multiple plans: `plan=trial,aws` — blocks both `trial` and `aws`
 
-* **`GA=<id1>,<id2>`** — optional. Only operations from the listed GlobalAccounts are blocked; all other GlobalAccounts are allowed.
+* `GA=<id1>,<id2>` — optional. Only operations from the listed GlobalAccounts are blocked; all other GlobalAccounts are allowed.
   * A single account: `GA=<id>` — operations from this GlobalAccount are blocked; all others are allowed.
   * Multiple accounts: `GA=<id1>,<id2>` — operations from `id1` or `id2` are blocked; all others are allowed.
 
-* **`GA!=<id1>,<id2>`** — optional. All GlobalAccounts except the listed ones are blocked.
+* `GA!=<id1>,<id2>` — optional. All GlobalAccounts except the listed ones are blocked.
   * A single exemption: `GA!=<id>` — all GlobalAccounts except `id` are blocked.
   * Multiple exemptions: `GA!=<id1>,<id2>` — all GlobalAccounts except `id1` and `id2` are blocked.
 
