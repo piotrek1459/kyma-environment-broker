@@ -391,6 +391,18 @@ func (b *ProvisionEndpoint) validate(ctx context.Context, details domain.Provisi
 		return apiresponses.NewFailureResponse(err, http.StatusUnprocessableEntity, err.Error())
 	}
 
+	if err := parameters.ValidateAdditionalVolumeSizeGi(); err != nil {
+		return apiresponses.NewFailureResponse(err, http.StatusUnprocessableEntity, err.Error())
+	}
+
+	if parameters.AdditionalVolumeSizeGi != nil {
+		planName := AvailablePlans.GetPlanNameOrEmpty(PlanIDType(provisioningParameters.PlanID))
+		if !b.config.AdditionalVolumeSizeGIPlans.Contains(planName) {
+			err := fmt.Errorf("additionalVolumeSizeGi is not available for plan %s", planName)
+			return apiresponses.NewFailureResponse(err, http.StatusBadRequest, err.Error())
+		}
+	}
+
 	if parameters.OIDC.IsProvided() {
 		if err := parameters.OIDC.Validate(nil); err != nil {
 			return apiresponses.NewFailureResponse(err, http.StatusUnprocessableEntity, err.Error())
