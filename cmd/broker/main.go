@@ -74,6 +74,11 @@ type Config struct {
 	// running in a separate testing deployment but with the production DB.
 	DisableProcessOperationsInProgress bool `envconfig:"default=false"`
 
+	// OperationRecoveryDelay is the delay after which a scan for in-progress
+	// operations is performed. This covers the rolling deployment race where an operation
+	// is created on the old pod after the new pod's startup scan has already completed.
+	OperationRecoveryDelay time.Duration `envconfig:"default=2m"`
+
 	// DevelopmentMode if set to true then errors are returned in http
 	// responses, otherwise errors are only logged and generic message
 	// is returned to client.
@@ -412,12 +417,15 @@ func main() {
 	kcHandler.AttachRoutes(router)
 
 	if !cfg.DisableProcessOperationsInProgress {
-		err = processOperationsInProgressByType(internal.OperationTypeProvision, db.Operations(), provisionQueue, log)
-		fatalOnError(err, log)
-		err = processOperationsInProgressByType(internal.OperationTypeDeprovision, db.Operations(), deprovisionQueue, log)
-		fatalOnError(err, log)
-		err = processOperationsInProgressByType(internal.OperationTypeUpdate, db.Operations(), updateQueue, log)
-		fatalOnError(err, log)
+		// Delayed scan to recover in-progress operations after a rolling deployment.
+		// Using a delay ensures the old pod has fully stopped, so operations created
+		// on the old pod after this pod started are not missed.
+		time.AfterFunc(cfg.OperationRecoveryDelay, func() {
+			log.Info(fmt.Sprintf("Running operation recovery scan after %s", cfg.OperationRecoveryDelay))
+			fatalOnError(processOperationsInProgressByType(internal.OperationTypeProvision, db.Operations(), provisionQueue, log), log)
+			fatalOnError(processOperationsInProgressByType(internal.OperationTypeDeprovision, db.Operations(), deprovisionQueue, log), log)
+			fatalOnError(processOperationsInProgressByType(internal.OperationTypeUpdate, db.Operations(), updateQueue, log), log)
+		})
 	} else {
 		log.Info("Skipping processing operation in progress on start")
 	}
