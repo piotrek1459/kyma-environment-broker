@@ -712,7 +712,11 @@ func TestProviderSpec_MachineFamily(t *testing.T) {
 		{"aws large", runtime.AWS, "c7i.large", "c7i", true},
 		{"aws no dot", runtime.AWS, "invalid", "", false},
 		{"aws empty", runtime.AWS, "", "", false},
-		{"unsupported provider", runtime.Azure, "Standard_D4s_v5", "", false},
+		{"azure D-series", runtime.Azure, "Standard_D4s_v5", "D", true},
+		{"azure NC-series", runtime.Azure, "Standard_NC4as_T4_v3", "NC", true},
+		{"azure F-series", runtime.Azure, "Standard_F4s_v2", "F", true},
+		{"azure no Standard prefix", runtime.Azure, "D4s_v5", "", false},
+		{"unsupported provider", runtime.GCP, "n2-standard-4", "", false},
 	}
 
 	for _, tc := range tests {

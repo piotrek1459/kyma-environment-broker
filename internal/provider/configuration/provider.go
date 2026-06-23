@@ -155,7 +155,7 @@ func (p *ProviderSpec) MachineDisplayNames(cp runtime.CloudProvider, machines []
 func (p *ProviderSpec) ValidateZonesDiscovery() error {
 	for provider, providerDTO := range p.data {
 		if providerDTO.ZonesDiscovery {
-			if provider != "aws" {
+			if provider != "aws" && provider != "azure" {
 				return fmt.Errorf("zone discovery is not yet supported for the %s provider", provider)
 			}
 
@@ -186,10 +186,24 @@ func (p *ProviderSpec) ZonesDiscovery(cp runtime.CloudProvider) bool {
 	return providerData.ZonesDiscovery
 }
 
+func (p *ProviderSpec) ZonesDiscoveryProviders() []runtime.CloudProvider {
+	var providers []runtime.CloudProvider
+	for name, dto := range p.data {
+		if dto.ZonesDiscovery {
+			// Normalize to match runtime.CloudProvider constants (e.g., "aws" → "AWS")
+			normalized := runtime.CloudProviderFromString(string(name))
+			providers = append(providers, normalized)
+		}
+	}
+	return providers
+}
+
 func (p *ProviderSpec) MachineFamily(cp runtime.CloudProvider, machineType string) (string, bool) {
 	switch cp {
 	case runtime.AWS:
 		return awsMachineFamily(machineType)
+	case runtime.Azure:
+		return azureMachineFamily(machineType)
 	default:
 		return "", false
 	}
@@ -203,6 +217,21 @@ func awsMachineFamily(machineType string) (string, bool) {
 		return "", false
 	}
 	return parts[0], true
+}
+
+// azureMachineFamily extracts the family prefix from an Azure machine type.
+// Azure machine types follow the pattern "Standard_<Family><rest>", e.g. "Standard_D4s_v5" → "D", "Standard_NC4as_T4_v3" → "NC".
+func azureMachineFamily(machineType string) (string, bool) {
+	const prefix = "Standard_"
+	if !strings.HasPrefix(machineType, prefix) {
+		return "", false
+	}
+	rest := machineType[len(prefix):]
+	i := strings.IndexFunc(rest, unicode.IsDigit)
+	if i <= 0 {
+		return "", false
+	}
+	return rest[:i], true
 }
 
 func (p *ProviderSpec) MachineTypes(cp runtime.CloudProvider) []string {

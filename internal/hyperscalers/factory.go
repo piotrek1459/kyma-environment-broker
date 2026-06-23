@@ -6,6 +6,7 @@ import (
 
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
+	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -22,6 +23,8 @@ func (f *hyperscalerFactory) NewFromSecret(ctx context.Context, provider pkg.Clo
 	switch provider {
 	case pkg.AWS:
 		return aws.NewClientFromSecret(ctx, f.providerSpec, secret, region)
+	case pkg.Azure:
+		return azure.NewClientFromSecret(ctx, f.providerSpec, secret, region)
 	default:
 		return nil, fmt.Errorf("zone discovery not supported for provider %s", provider)
 	}
