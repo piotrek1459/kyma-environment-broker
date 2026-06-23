@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -11,6 +12,11 @@ import (
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+const (
+	retries  = 3
+	interval = 2 * time.Second
 )
 
 type ResourceSKUsAPI interface {
@@ -71,6 +77,20 @@ func (c *AzureClient) fillCache(ctx context.Context) error {
 		return nil
 	}
 
+	var lastErr error
+	for i := 0; i < retries; i++ {
+		if err := c.tryFillCache(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			c.cache = nil
+			time.Sleep(interval)
+		}
+	}
+	return lastErr
+}
+
+func (c *AzureClient) tryFillCache(ctx context.Context) error {
 	c.cache = make(map[string][]string)
 
 	filter := fmt.Sprintf("location eq '%s'", c.region)
@@ -133,6 +153,14 @@ func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 		zones = append(zones, z)
 	}
 	return zones
+}
+
+func ExtractSubscriptionID(secret *unstructured.Unstructured) (string, error) {
+	data, found, err := unstructured.NestedStringMap(secret.Object, "data")
+	if err != nil || !found {
+		return "", fmt.Errorf("unable to extract data from secret: %w", err)
+	}
+	return decodeField(data, "subscriptionID")
 }
 
 func ExtractCredentials(secret *unstructured.Unstructured) (clientID, clientSecret, tenantID, subscriptionID string, err error) {

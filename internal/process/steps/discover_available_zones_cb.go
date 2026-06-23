@@ -12,6 +12,7 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal"
 	kebError "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
+	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/process"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"github.com/kyma-project/kyma-environment-broker/internal/storage"
@@ -76,6 +77,12 @@ func (s *DiscoverAvailableZonesCBStep) Run(operation internal.Operation, log *sl
 	secret, err := s.gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
 	if err != nil {
 		return s.operationManager.RetryOperation(operation, fmt.Sprintf("unable to get secret %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()), err, 10*time.Second, time.Minute, log)
+	}
+
+	if provider == runtime.Azure {
+		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
+			log.Info(fmt.Sprintf("discovering Azure zones using subscription %s", subscriptionID))
+		}
 	}
 
 	client, err := s.factory.NewFromSecret(context.Background(), provider, secret, operation.ProviderValues.Region)

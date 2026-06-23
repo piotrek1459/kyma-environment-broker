@@ -26,6 +26,7 @@ import (
 	error2 "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/euaccess"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
+	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/kubeconfig"
 	"github.com/kyma-project/kyma-environment-broker/internal/middleware"
 	"github.com/kyma-project/kyma-environment-broker/internal/networking"
@@ -1211,6 +1212,12 @@ func newHyperscalerClient(
 	secret, err := gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
 	if err != nil {
 		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
+	}
+
+	if provider == pkg.Azure {
+		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
+			log.Info(fmt.Sprintf("validating Azure zones using subscription %s", subscriptionID))
+		}
 	}
 
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
