@@ -30,12 +30,7 @@ Example log entries:
 
 ## Credentials
 
-KEB resolves hyperscaler credentials from Gardener secrets referenced by a `CredentialsBinding`. The secret fields differ per provider:
-
-| Provider | Secret fields |
-|----------|--------------|
-| AWS | `accessKeyID`, `secretAccessKey` |
-| Azure | `clientID`, `clientSecret`, `tenantID`, `subscriptionID` |
+KEB resolves hyperscaler credentials from Gardener secrets referenced by a `CredentialsBinding`. The secret fields follow the Gardener convention for each provider type.
 
 ## Validation
 
