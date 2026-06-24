@@ -93,6 +93,11 @@ func (c *AzureClient) fillCache(ctx context.Context) error {
 func (c *AzureClient) tryFillCache(ctx context.Context) error {
 	c.cache = make(map[string][]string)
 
+	supported := make(map[string]struct{})
+	for _, mt := range c.providerSpec.MachineTypes(pkg.Azure) {
+		supported[mt] = struct{}{}
+	}
+
 	filter := fmt.Sprintf("location eq '%s'", c.region)
 	pager := c.skusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
 		Filter: &filter,
@@ -109,6 +114,9 @@ func (c *AzureClient) tryFillCache(ctx context.Context) error {
 				continue
 			}
 			if sku.Name == nil {
+				continue
+			}
+			if _, ok := supported[*sku.Name]; !ok {
 				continue
 			}
 

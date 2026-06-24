@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -146,12 +147,29 @@ func buildSecret(plainValues map[string]string) *unstructured.Unstructured {
 }
 
 func buildClient(skus []*armcompute.ResourceSKU, apiErr error) *AzureClient {
-	spec, _ := configuration.NewProviderSpec(strings.NewReader(""))
+	// Extract machine names from SKUs so providerSpec knows which ones to keep in cache.
+	machineNames := make([]string, 0, len(skus))
+	for _, sku := range skus {
+		if sku.Name != nil {
+			machineNames = append(machineNames, *sku.Name)
+		}
+	}
+	spec := buildProviderSpec(machineNames)
 	return &AzureClient{
 		skusClient:   &mockSKUsAPI{skus: skus, err: apiErr},
 		region:       "westeurope",
 		providerSpec: spec,
 	}
+}
+
+func buildProviderSpec(machineNames []string) *configuration.ProviderSpec {
+	machines := ""
+	for _, name := range machineNames {
+		machines += fmt.Sprintf("    %q: %q\n", name, name)
+	}
+	yaml := fmt.Sprintf("azure:\n  zonesDiscovery: true\n  machines:\n%s", machines)
+	spec, _ := configuration.NewProviderSpec(strings.NewReader(yaml))
+	return spec
 }
 
 func buildSKU(name string, zones []string, restrictedZones []string) *armcompute.ResourceSKU {

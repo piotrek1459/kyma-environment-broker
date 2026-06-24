@@ -26,6 +26,7 @@ import (
 	error2 "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/euaccess"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
+	awshyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
 	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/kubeconfig"
 	"github.com/kyma-project/kyma-environment-broker/internal/middleware"
@@ -1216,7 +1217,11 @@ func newHyperscalerClient(
 
 	if provider == pkg.Azure {
 		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
-			log.Info(fmt.Sprintf("validating Azure zones using subscription %s", subscriptionID))
+			log.Info(fmt.Sprintf("validating zones using subscription %s region=%s", subscriptionID, values.Region))
+		}
+	} else if provider == pkg.AWS {
+		if accessKeyID, _, err := awshyperscaler.ExtractCredentials(secret); err == nil {
+			log.Info(fmt.Sprintf("validating zones using subscription %s region=%s", accessKeyID, values.Region))
 		}
 	}
 

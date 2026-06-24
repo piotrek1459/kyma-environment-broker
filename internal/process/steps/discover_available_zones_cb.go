@@ -12,6 +12,7 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal"
 	kebError "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
+	awshyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
 	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/process"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
@@ -81,7 +82,11 @@ func (s *DiscoverAvailableZonesCBStep) Run(operation internal.Operation, log *sl
 
 	if provider == runtime.Azure {
 		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
-			log.Info(fmt.Sprintf("discovering Azure zones using subscription %s", subscriptionID))
+			log.Info(fmt.Sprintf("discovering zones using subscription %s region=%s", subscriptionID, operation.ProviderValues.Region))
+		}
+	} else if provider == runtime.AWS {
+		if accessKeyID, _, err := awshyperscaler.ExtractCredentials(secret); err == nil {
+			log.Info(fmt.Sprintf("discovering zones using subscription %s region=%s", accessKeyID, operation.ProviderValues.Region))
 		}
 	}
 
@@ -109,7 +114,7 @@ func (s *DiscoverAvailableZonesCBStep) Run(operation internal.Operation, log *sl
 			return s.operationManager.RetryOperation(operation, fmt.Sprintf("unable to get available zones for machine type %s", machineType), err, 10*time.Second, time.Minute, log)
 		}
 		rand.Shuffle(len(zones), func(i, j int) { zones[i], zones[j] = zones[j], zones[i] })
-		log.Info(fmt.Sprintf("Available zones for machine type %s: %v", machineType, zones))
+		log.Info(fmt.Sprintf("Available zones for machine type %s in region %s: %v", machineType, operation.ProviderValues.Region, zones))
 		discoveredZones[machineType] = zones
 	}
 
