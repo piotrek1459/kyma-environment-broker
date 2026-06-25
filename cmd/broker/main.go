@@ -387,7 +387,6 @@ func main() {
 	}
 	factory := hyperscalers.NewFactoryWithAzureCache(ctx, providerSpec, azureSecret)
 
-	fatalOnError(err, log)
 	log.Info(fmt.Sprintf("Number of globalAccountIds for max pods: %d", len(cfg.MaxPodsWhitelistedGlobalAccountIds)))
 
 	// run queues

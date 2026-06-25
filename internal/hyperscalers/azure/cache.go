@@ -14,7 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const refreshInterval = 1 * time.Hour
+const (
+	refreshInterval      = 1 * time.Hour
+	cacheRetries         = 3
+	cacheRetryInterval   = 2 * time.Second
+)
 
 // AzureCache is a global singleton cache of available zones per region and machine type.
 // It is filled lazily in the background after KEB starts and refreshed every hour.
@@ -74,8 +78,17 @@ func (c *AzureCache) run(ctx context.Context, secret *unstructured.Unstructured)
 func (c *AzureCache) fillAll(ctx context.Context, secret *unstructured.Unstructured) {
 	regions := c.providerSpec.Regions(pkg.Azure)
 	for _, region := range regions {
-		if err := c.fillRegion(ctx, secret, region); err != nil {
-			slog.Error(fmt.Sprintf("failed to fill Azure zone cache for region %s: %s", region, err))
+		var lastErr error
+		for i := 0; i < cacheRetries; i++ {
+			if err := c.fillRegion(ctx, secret, region); err == nil {
+				break
+			} else {
+				lastErr = err
+				time.Sleep(cacheRetryInterval)
+			}
+		}
+		if lastErr != nil {
+			slog.Error(fmt.Sprintf("failed to fill Azure zone cache for region %s after %d retries: %s", region, cacheRetries, lastErr))
 		}
 	}
 }

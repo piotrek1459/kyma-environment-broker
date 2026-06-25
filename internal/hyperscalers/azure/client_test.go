@@ -106,18 +106,20 @@ func TestAvailableZones_CacheHit(t *testing.T) {
 	}
 
 	mockAPI := &countingMockSKUsAPI{skus: skus, callCounter: &callCount}
-	spec, _ := configuration.NewProviderSpec(strings.NewReader(""))
+	spec := buildProviderSpec([]string{"Standard_D4s_v5"})
 	client := &AzureClient{
 		skusClient:   mockAPI,
 		region:       "westeurope",
 		providerSpec: spec,
 	}
 
-	_, err := client.AvailableZones(context.Background(), "Standard_D4s_v5")
+	zones, err := client.AvailableZones(context.Background(), "Standard_D4s_v5")
 	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"1", "2", "3"}, zones)
 
-	_, err = client.AvailableZones(context.Background(), "Standard_D4s_v5")
+	zones, err = client.AvailableZones(context.Background(), "Standard_D4s_v5")
 	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"1", "2", "3"}, zones)
 
 	assert.Equal(t, 1, callCount, "API should be called only once due to cache")
 }
