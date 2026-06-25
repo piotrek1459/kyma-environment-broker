@@ -12,8 +12,6 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal"
 	kebError "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
-	awshyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
-	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/process"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"github.com/kyma-project/kyma-environment-broker/internal/storage"
@@ -80,15 +78,7 @@ func (s *DiscoverAvailableZonesCBStep) Run(operation internal.Operation, log *sl
 		return s.operationManager.RetryOperation(operation, fmt.Sprintf("unable to get secret %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()), err, 10*time.Second, time.Minute, log)
 	}
 
-	if provider == runtime.Azure {
-		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
-			log.Info(fmt.Sprintf("discovering zones using subscription %s region=%s", subscriptionID, operation.ProviderValues.Region))
-		}
-	} else if provider == runtime.AWS {
-		if accessKeyID, _, err := awshyperscaler.ExtractCredentials(secret); err == nil {
-			log.Info(fmt.Sprintf("discovering zones using subscription %s region=%s", accessKeyID, operation.ProviderValues.Region))
-		}
-	}
+	log.Info(fmt.Sprintf("discovering zones using credentials binding %s region=%s", subscriptionSecretName, operation.ProviderValues.Region))
 
 	client, err := s.factory.NewFromSecret(context.Background(), provider, secret, operation.ProviderValues.Region)
 	if err != nil {

@@ -26,8 +26,6 @@ import (
 	error2 "github.com/kyma-project/kyma-environment-broker/internal/error"
 	"github.com/kyma-project/kyma-environment-broker/internal/euaccess"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
-	awshyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
-	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/kubeconfig"
 	"github.com/kyma-project/kyma-environment-broker/internal/middleware"
 	"github.com/kyma-project/kyma-environment-broker/internal/networking"
@@ -1215,15 +1213,7 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
 	}
 
-	if provider == pkg.Azure {
-		if subscriptionID, err := azurehyperscaler.ExtractSubscriptionID(secret); err == nil {
-			log.Info(fmt.Sprintf("validating zones using subscription %s region=%s", subscriptionID, values.Region))
-		}
-	} else if provider == pkg.AWS {
-		if accessKeyID, _, err := awshyperscaler.ExtractCredentials(secret); err == nil {
-			log.Info(fmt.Sprintf("validating zones using subscription %s region=%s", accessKeyID, values.Region))
-		}
-	}
+	log.Info(fmt.Sprintf("validating zones using credentials binding %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
 
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
 	if err != nil {
