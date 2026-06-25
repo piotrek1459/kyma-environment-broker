@@ -15,7 +15,6 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/common/gardener"
 	"github.com/kyma-project/kyma-environment-broker/common/hyperscaler/multiaccount"
 	"github.com/kyma-project/kyma-environment-broker/common/hyperscaler/rules"
-	"github.com/kyma-project/kyma-environment-broker/internal/subscriptions"
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal"
 	"github.com/kyma-project/kyma-environment-broker/internal/additionalproperties"
@@ -31,6 +30,7 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal/health"
 	"github.com/kyma-project/kyma-environment-broker/internal/httputil"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers"
+	azurehyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
 	"github.com/kyma-project/kyma-environment-broker/internal/kubeconfig"
 	"github.com/kyma-project/kyma-environment-broker/internal/machinesavailability"
 	"github.com/kyma-project/kyma-environment-broker/internal/metrics"
@@ -40,6 +40,7 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal/quota"
 	"github.com/kyma-project/kyma-environment-broker/internal/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/storage"
+	"github.com/kyma-project/kyma-environment-broker/internal/subscriptions"
 	"github.com/kyma-project/kyma-environment-broker/internal/suspension"
 	"github.com/kyma-project/kyma-environment-broker/internal/swagger"
 	"github.com/kyma-project/kyma-environment-broker/internal/version"
@@ -381,11 +382,13 @@ func main() {
 	log.Info("Plans and providers configuration is valid")
 	workersProvider := workers.NewProvider(cfg.InfrastructureManager, providerSpec, cfg.Broker.WorkerPoolLabelsAnnotationsEnabled)
 
-	azureSecret, err := resolveFirstAzureSecret(gardenerClient, rulesService)
+	// azureSecretFetcher re-fetches the Azure secret on every cache refresh
+	// to handle credential rotation without restarting KEB.
+	azureSecretFetcher, err := buildAzureSecretFetcher(gardenerClient, rulesService)
 	if err != nil {
 		log.Warn(fmt.Sprintf("Azure zone cache unavailable, falling back to per-call mode: %s", err))
 	}
-	factory := hyperscalers.NewFactoryWithAzureCache(ctx, providerSpec, azureSecret)
+	factory := hyperscalers.NewFactoryWithAzureCache(ctx, providerSpec, azureSecretFetcher)
 
 	log.Info(fmt.Sprintf("Number of globalAccountIds for max pods: %d", len(cfg.MaxPodsWhitelistedGlobalAccountIds)))
 
@@ -670,9 +673,10 @@ func resolvedMachineTypesForKCR(providerSpec *configuration.ProviderSpec, provid
 	return result
 }
 
-// resolveFirstAzureSecret finds the first available Azure credentials secret from Gardener.
-// Used to initialize the global Azure zone cache at KEB startup.
-func resolveFirstAzureSecret(gardenerClient *gardener.Client, rulesService *rules.RulesService) (*unstructured.Unstructured, error) {
+// buildAzureSecretFetcher returns a SecretFetcher that fetches the first available Azure
+// credentials secret from Gardener on each call. This ensures credential rotation is
+// picked up on every cache refresh without restarting KEB.
+func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rules.RulesService) (azurehyperscaler.SecretFetcher, error) {
 	attr := &rules.ProvisioningAttributes{
 		Plan:        "azure",
 		Hyperscaler: "azure",
@@ -682,17 +686,20 @@ func resolveFirstAzureSecret(gardenerClient *gardener.Client, rulesService *rule
 		return nil, fmt.Errorf("no matching rule for azure hyperscaler")
 	}
 	labelSelector := subscriptions.NewLabelSelectorFromRuleset(matchedRule).BuildAnySubscription()
-	credentialsBindings, err := gardenerClient.GetCredentialsBindings(labelSelector)
-	if err != nil {
-		return nil, fmt.Errorf("while getting Azure credentials bindings: %w", err)
-	}
-	if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
-		return nil, fmt.Errorf("no Azure credentials bindings found for selector %q", labelSelector)
-	}
-	cb := gardener.NewCredentialsBinding(credentialsBindings.Items[0])
-	secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
-	if err != nil {
-		return nil, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
-	}
-	return secret, nil
+
+	return func() (*unstructured.Unstructured, error) {
+		credentialsBindings, err := gardenerClient.GetCredentialsBindings(labelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("while getting Azure credentials bindings: %w", err)
+		}
+		if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
+			return nil, fmt.Errorf("no Azure credentials bindings found for selector %q", labelSelector)
+		}
+		cb := gardener.NewCredentialsBinding(credentialsBindings.Items[0])
+		secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+		if err != nil {
+			return nil, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
+		}
+		return secret, nil
+	}, nil
 }

@@ -15,28 +15,35 @@ import (
 )
 
 const (
-	refreshInterval      = 1 * time.Hour
-	cacheRetries         = 3
-	cacheRetryInterval   = 2 * time.Second
+	refreshInterval    = 1 * time.Hour
+	cacheRetries       = 3
+	cacheRetryInterval = 2 * time.Second
 )
 
-// AzureCache is a global singleton cache of available zones per region and machine type.
+// SecretFetcher fetches the current Azure credentials secret from Gardener.
+// Called on every cache refresh to pick up rotated credentials.
+type SecretFetcher func() (*unstructured.Unstructured, error)
+
+// AzureCache is a global cache of available zones per region and machine type.
 // It is filled lazily in the background after KEB starts and refreshed every hour.
 // Only regions and machine types configured in providerSpec are cached.
+// The secret is re-fetched on every refresh to handle credential rotation.
 type AzureCache struct {
-	mu           sync.RWMutex
-	data         map[string]map[string][]string // region → machineType → zones
-	providerSpec *configuration.ProviderSpec
+	mu            sync.RWMutex
+	data          map[string]map[string][]string // region → machineType → zones
+	providerSpec  *configuration.ProviderSpec
+	secretFetcher SecretFetcher
 }
 
 // NewAzureCache creates a new AzureCache and starts a background goroutine that fills
 // all configured regions and refreshes them every hour. It does not block startup.
-func NewAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, secret *unstructured.Unstructured) *AzureCache {
+func NewAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, secretFetcher SecretFetcher) *AzureCache {
 	c := &AzureCache{
-		data:         make(map[string]map[string][]string),
-		providerSpec: providerSpec,
+		data:          make(map[string]map[string][]string),
+		providerSpec:  providerSpec,
+		secretFetcher: secretFetcher,
 	}
-	go c.run(ctx, secret)
+	go c.run(ctx)
 	return c
 }
 
@@ -60,22 +67,28 @@ func (c *AzureCache) Ready(region string) bool {
 	return ok
 }
 
-func (c *AzureCache) run(ctx context.Context, secret *unstructured.Unstructured) {
-	c.fillAll(ctx, secret)
+func (c *AzureCache) run(ctx context.Context) {
+	c.fillAll(ctx)
 
 	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			c.fillAll(ctx, secret)
+			c.fillAll(ctx)
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *AzureCache) fillAll(ctx context.Context, secret *unstructured.Unstructured) {
+func (c *AzureCache) fillAll(ctx context.Context) {
+	secret, err := c.secretFetcher()
+	if err != nil {
+		slog.Error(fmt.Sprintf("failed to fetch Azure secret for cache refresh: %s", err))
+		return
+	}
+
 	regions := c.providerSpec.Regions(pkg.Azure)
 	for _, region := range regions {
 		var lastErr error
@@ -126,7 +139,7 @@ func (c *AzureCache) fillRegion(ctx context.Context, secret *unstructured.Unstru
 			return fmt.Errorf("failed to list Azure resource SKUs for region %s: %w", region, err)
 		}
 		for _, sku := range page.Value {
-			if sku.ResourceType == nil || *sku.ResourceType != "virtualMachines" || sku.Name == nil {
+			if sku.ResourceType == nil || *sku.ResourceType != resourceTypeVirtualMachines || sku.Name == nil {
 				continue
 			}
 			if _, ok := supported[*sku.Name]; !ok {

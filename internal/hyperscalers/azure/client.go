@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -15,8 +16,13 @@ import (
 )
 
 const (
+	// retries and interval are intentionally different from AWS (5×1s):
+	// Azure ResourceSKUs API is slower and more prone to throttling,
+	// so fewer retries with longer backoff are preferred.
 	retries  = 3
 	interval = 2 * time.Second
+
+	resourceTypeVirtualMachines = "virtualMachines"
 )
 
 type ResourceSKUsAPI interface {
@@ -98,6 +104,8 @@ func (c *AzureClient) tryFillCache(ctx context.Context) error {
 		supported[mt] = struct{}{}
 	}
 
+	slog.Info(fmt.Sprintf("querying Azure ResourceSKUs for region %s", c.region))
+
 	filter := fmt.Sprintf("location eq '%s'", c.region)
 	pager := c.skusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
 		Filter: &filter,
@@ -110,7 +118,7 @@ func (c *AzureClient) tryFillCache(ctx context.Context) error {
 		}
 
 		for _, sku := range page.Value {
-			if sku.ResourceType == nil || *sku.ResourceType != "virtualMachines" {
+			if sku.ResourceType == nil || *sku.ResourceType != resourceTypeVirtualMachines {
 				continue
 			}
 			if sku.Name == nil {
@@ -125,6 +133,7 @@ func (c *AzureClient) tryFillCache(ctx context.Context) error {
 	}
 
 	c.cacheDone = true
+	slog.Info(fmt.Sprintf("Azure ResourceSKUs loaded for region %s (%d machine types cached)", c.region, len(c.cache)))
 	return nil
 }
 

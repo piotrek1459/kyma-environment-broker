@@ -24,10 +24,11 @@ func NewFactory(providerSpec *configuration.ProviderSpec) Factory {
 
 // NewFactoryWithAzureCache creates a Factory with a global Azure zone cache.
 // The cache fills lazily in the background — KEB startup is not blocked.
-func NewFactoryWithAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, azureSecret *unstructured.Unstructured) Factory {
+// secretFetcher is called on every cache refresh to handle credential rotation.
+func NewFactoryWithAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, secretFetcher azure.SecretFetcher) Factory {
 	var azureCache *azure.AzureCache
-	if azureSecret != nil && providerSpec.ZonesDiscovery(pkg.Azure) {
-		azureCache = azure.NewAzureCache(ctx, providerSpec, azureSecret)
+	if secretFetcher != nil && providerSpec.ZonesDiscovery(pkg.Azure) {
+		azureCache = azure.NewAzureCache(ctx, providerSpec, secretFetcher)
 	}
 	return &hyperscalerFactory{
 		providerSpec: providerSpec,
