@@ -24,24 +24,34 @@ const (
 // Called on every cache refresh to pick up rotated credentials.
 type SecretFetcher func() (*unstructured.Unstructured, error)
 
+// SKUsClientFactory creates a ResourceSKUsAPI from credentials.
+// Replaceable in tests to avoid real Azure API calls.
+type SKUsClientFactory func(subscriptionID string, credential *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error)
+
+func defaultSKUsClientFactory(subscriptionID string, credential *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
+	return armcompute.NewResourceSKUsClient(subscriptionID, credential, nil)
+}
+
 // AzureCache is a global cache of available zones per region and machine type.
 // It is filled lazily in the background after KEB starts and refreshed every hour.
 // Only regions and machine types configured in providerSpec are cached.
 // The secret is re-fetched on every refresh to handle credential rotation.
 type AzureCache struct {
-	mu            sync.RWMutex
-	data          map[string]map[string][]string // region → machineType → zones
-	providerSpec  *configuration.ProviderSpec
-	secretFetcher SecretFetcher
+	mu               sync.RWMutex
+	data             map[string]map[string][]string // region → machineType → zones
+	providerSpec     *configuration.ProviderSpec
+	secretFetcher    SecretFetcher
+	skusClientFactory SKUsClientFactory
 }
 
 // NewAzureCache creates a new AzureCache and starts a background goroutine that fills
 // all configured regions and refreshes them every hour. It does not block startup.
 func NewAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, secretFetcher SecretFetcher) *AzureCache {
 	c := &AzureCache{
-		data:          make(map[string]map[string][]string),
-		providerSpec:  providerSpec,
-		secretFetcher: secretFetcher,
+		data:              make(map[string]map[string][]string),
+		providerSpec:      providerSpec,
+		secretFetcher:     secretFetcher,
+		skusClientFactory: defaultSKUsClientFactory,
 	}
 	go c.run(ctx)
 	return c
@@ -119,7 +129,7 @@ func (c *AzureCache) fillRegion(ctx context.Context, secret *unstructured.Unstru
 		return fmt.Errorf("while creating Azure credential: %w", err)
 	}
 
-	skusClient, err := armcompute.NewResourceSKUsClient(subscriptionID, credential, nil)
+	skusClient, err := c.skusClientFactory(subscriptionID, credential)
 	if err != nil {
 		return fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
 	}

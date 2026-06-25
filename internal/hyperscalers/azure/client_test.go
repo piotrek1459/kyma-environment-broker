@@ -235,6 +235,7 @@ func (m *mockSKUsAPI) NewListPager(_ *armcompute.ResourceSKUsClientListOptions) 
 type countingMockSKUsAPI struct {
 	skus        []*armcompute.ResourceSKU
 	callCounter *int
+	err         error
 }
 
 func (m *countingMockSKUsAPI) NewListPager(_ *armcompute.ResourceSKUsClientListOptions) *runtime.Pager[armcompute.ResourceSKUsClientListResponse] {
@@ -246,6 +247,9 @@ func (m *countingMockSKUsAPI) NewListPager(_ *armcompute.ResourceSKUsClientListO
 		Fetcher: func(ctx context.Context, _ *armcompute.ResourceSKUsClientListResponse) (armcompute.ResourceSKUsClientListResponse, error) {
 			called = true
 			*m.callCounter++
+			if m.err != nil {
+				return armcompute.ResourceSKUsClientListResponse{}, m.err
+			}
 			return armcompute.ResourceSKUsClientListResponse{
 				ResourceSKUsResult: armcompute.ResourceSKUsResult{Value: m.skus},
 			}, nil
