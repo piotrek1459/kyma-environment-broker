@@ -1213,7 +1213,7 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
 	}
 
-	log.Info(fmt.Sprintf("validating zones using credentials binding %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
+	log.Info(fmt.Sprintf("validating zones using secret %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
 
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
 	if err != nil {

@@ -174,8 +174,11 @@ func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 
 func ExtractSubscriptionID(secret *unstructured.Unstructured) (string, error) {
 	data, found, err := unstructured.NestedStringMap(secret.Object, "data")
-	if err != nil || !found {
+	if err != nil {
 		return "", fmt.Errorf("unable to extract data from secret: %w", err)
+	}
+	if !found {
+		return "", fmt.Errorf("secret does not contain data")
 	}
 	return decodeField(data, "subscriptionID")
 }

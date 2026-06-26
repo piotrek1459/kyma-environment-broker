@@ -384,9 +384,14 @@ func main() {
 
 	// azureSecretFetcher re-fetches the Azure secret on every cache refresh
 	// to handle credential rotation without restarting KEB.
-	azureSecretFetcher, err := buildAzureSecretFetcher(gardenerClient, rulesService)
-	if err != nil {
-		log.Warn(fmt.Sprintf("Azure zone cache unavailable, falling back to per-call mode: %s", err))
+	// Only built when Azure zones discovery is enabled.
+	var azureSecretFetcher azurehyperscaler.SecretFetcher
+	if providerSpec.ZonesDiscovery(pkg.Azure) {
+		var fetchErr error
+		azureSecretFetcher, fetchErr = buildAzureSecretFetcher(gardenerClient, rulesService)
+		if fetchErr != nil {
+			log.Warn(fmt.Sprintf("Azure zone cache unavailable, falling back to per-call mode: %s", fetchErr))
+		}
 	}
 	factory := hyperscalers.NewFactoryWithAzureCache(ctx, providerSpec, azureSecretFetcher)
 

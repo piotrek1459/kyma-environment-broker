@@ -101,16 +101,22 @@ func (c *AzureCache) fillAll(ctx context.Context) {
 
 	regions := c.providerSpec.Regions(pkg.Azure)
 	for _, region := range regions {
+		var filled bool
 		var lastErr error
 		for i := 0; i < cacheRetries; i++ {
 			if err := c.fillRegion(ctx, secret, region); err == nil {
+				filled = true
 				break
 			} else {
 				lastErr = err
-				time.Sleep(cacheRetryInterval)
+				select {
+				case <-time.After(cacheRetryInterval):
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-		if lastErr != nil {
+		if !filled {
 			slog.Error(fmt.Sprintf("failed to fill Azure zone cache for region %s after %d retries: %s", region, cacheRetries, lastErr))
 		}
 	}

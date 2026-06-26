@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -36,7 +37,10 @@ func buildCacheSpec(machineNames []string) *configuration.ProviderSpec {
 		machines += "    \"" + name + "\": \"" + name + "\"\n"
 	}
 	yaml := "azure:\n  zonesDiscovery: true\n  regions:\n    westeurope:\n      displayName: \"West Europe\"\n  machines:\n" + machines
-	spec, _ := configuration.NewProviderSpec(strings.NewReader(yaml))
+	spec, err := configuration.NewProviderSpec(strings.NewReader(yaml))
+	if err != nil {
+		panic(fmt.Sprintf("buildCacheSpec: failed to parse spec: %v", err))
+	}
 	return spec
 }
 

@@ -16,8 +16,8 @@ type hyperscalerFactory struct {
 	azureCache   *azure.AzureCache
 }
 
-// NewFactory creates a new Factory. If an azureSecret is provided and Azure has zonesDiscovery
-// enabled, a global background cache is started for all configured Azure regions.
+// NewFactory creates a new Factory without a global Azure zone cache.
+// All zone discovery calls go directly to the hyperscaler API.
 func NewFactory(providerSpec *configuration.ProviderSpec) Factory {
 	return &hyperscalerFactory{providerSpec: providerSpec}
 }
@@ -25,6 +25,7 @@ func NewFactory(providerSpec *configuration.ProviderSpec) Factory {
 // NewFactoryWithAzureCache creates a Factory with a global Azure zone cache.
 // The cache fills lazily in the background — KEB startup is not blocked.
 // secretFetcher is called on every cache refresh to handle credential rotation.
+// If secretFetcher is nil or Azure zones discovery is disabled, behaves like NewFactory.
 func NewFactoryWithAzureCache(ctx context.Context, providerSpec *configuration.ProviderSpec, secretFetcher azure.SecretFetcher) Factory {
 	var azureCache *azure.AzureCache
 	if secretFetcher != nil && providerSpec.ZonesDiscovery(pkg.Azure) {
@@ -43,6 +44,10 @@ func (f *hyperscalerFactory) NewFromSecret(ctx context.Context, provider pkg.Clo
 	case pkg.Azure:
 		// Use global cache if available and ready for this region — zero latency.
 		// Falls back to per-call client if cache is not yet ready (lazy fill in progress).
+		// Note: the cached client uses zone data from the startup secret, not the caller-provided
+		// secret. This is intentional — the cache trades per-subscription accuracy for speed.
+		// The async DiscoverAvailableZonesCBStep always uses a per-call client with the exact
+		// Kyma-specific secret for accurate zone assignment.
 		if f.azureCache != nil && f.azureCache.Ready(region) {
 			return azure.NewCachedClient(f.azureCache, region, f.providerSpec), nil
 		}

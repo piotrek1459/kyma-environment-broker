@@ -195,6 +195,9 @@ func (p *ProviderSpec) ZonesDiscoveryProviders() []runtime.CloudProvider {
 			providers = append(providers, normalized)
 		}
 	}
+	sort.Slice(providers, func(i, j int) bool {
+		return providers[i] < providers[j]
+	})
 	return providers
 }
 
