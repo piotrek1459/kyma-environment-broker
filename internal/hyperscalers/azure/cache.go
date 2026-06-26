@@ -37,10 +37,10 @@ func defaultSKUsClientFactory(subscriptionID string, credential *azidentity.Clie
 // Only regions and machine types configured in providerSpec are cached.
 // The secret is re-fetched on every refresh to handle credential rotation.
 type AzureCache struct {
-	mu               sync.RWMutex
-	data             map[string]map[string][]string // region → machineType → zones
-	providerSpec     *configuration.ProviderSpec
-	secretFetcher    SecretFetcher
+	mu                sync.RWMutex
+	data              map[string]map[string][]string // region → machineType → zones
+	providerSpec      *configuration.ProviderSpec
+	secretFetcher     SecretFetcher
 	skusClientFactory SKUsClientFactory
 }
 
