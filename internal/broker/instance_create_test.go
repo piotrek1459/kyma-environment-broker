@@ -2950,7 +2950,7 @@ func TestDiscoveryZones_AWS(t *testing.T) {
 
 func TestDiscoveryZones_Azure(t *testing.T) {
 	// Tests HTTP-time zone validation for Azure — mirrors TestDiscoveryZones but with Azure provider.
-	// Logs should contain: "validating Azure zones using subscription test-subscription-id-12345"
+	// Logs should contain: "validating zones using secret test/azure-secret-1 region=westeurope"
 	memoryStorage := storage.NewMemoryStorage()
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))

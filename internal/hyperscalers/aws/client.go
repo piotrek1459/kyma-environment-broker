@@ -31,9 +31,9 @@ func NewClientFromSecret(ctx context.Context, providerSpec *configuration.Provid
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract AWS credentials: %w", err)
 	}
-	return NewClient(ctx, providerSpec, accessKeyID, secretAccessKey, region)
 	// Note: credentials are not validated here (lazy) — validation happens on first API call.
 	// This differs from Azure where azidentity validates credentials eagerly.
+	return NewClient(ctx, providerSpec, accessKeyID, secretAccessKey, region)
 }
 
 type AWSClient struct {

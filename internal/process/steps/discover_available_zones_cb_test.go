@@ -428,8 +428,7 @@ func TestDiscoverAvailableZonesCBStep_AzureProvisioningHappyPath(t *testing.T) {
 		}, nil))
 
 	// when
-	// Logs should contain:
-	//   discovering Azure zones using subscription test-subscription-id-12345
+	// Logs should contain: "discovering zones using credentials binding azure-unclaimed region=westeurope"
 	operation, repeat, err := step.Run(operation, fixLogger())
 
 	// then

@@ -735,3 +735,30 @@ type captureWriter struct {
 func (c *captureWriter) Write(p []byte) (n int, err error) {
 	return c.buf.Write(p)
 }
+
+func TestProviderSpec_ZonesDiscoveryProviders_StableOrder(t *testing.T) {
+	spec, err := NewProviderSpec(strings.NewReader(`
+aws:
+  zonesDiscovery: true
+  regions:
+    eu-central-1:
+      displayName: "EU Central"
+azure:
+  zonesDiscovery: true
+  regions:
+    westeurope:
+      displayName: "West Europe"
+`))
+	require.NoError(t, err)
+
+	providers := spec.ZonesDiscoveryProviders()
+
+	require.Len(t, providers, 2)
+	// Result must be sorted: AWS < Azure alphabetically.
+	assert.Equal(t, runtime.AWS, providers[0])
+	assert.Equal(t, runtime.Azure, providers[1])
+
+	// Call again — order must be stable across repeated calls.
+	providers2 := spec.ZonesDiscoveryProviders()
+	assert.Equal(t, providers, providers2)
+}

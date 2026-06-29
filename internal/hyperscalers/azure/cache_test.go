@@ -145,26 +145,6 @@ func TestAzureCache_ConcurrentReads(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAzureCache_RetryOnFillRegionError(t *testing.T) {
-	// AzureClient.fillCache retries 'retries' times on API error.
-	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
-	callCount := 0
-
-	client := &AzureClient{
-		skusClient: &countingMockSKUsAPI{
-			skus:        nil,
-			callCounter: &callCount,
-			err:         assert.AnError,
-		},
-		region:       "westeurope",
-		providerSpec: spec,
-	}
-
-	err := client.fillCache(context.Background())
-	require.Error(t, err)
-	assert.Equal(t, retries, callCount)
-}
-
 func TestAzureCachedClient_ReturnsFromCache(t *testing.T) {
 	skus := []*armcompute.ResourceSKU{
 		buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
@@ -196,4 +176,51 @@ func TestAzureCachedClient_NotReadyRegionReturnsNil(t *testing.T) {
 	zones, err := client.AvailableZones(context.Background(), "Standard_D4s_v5")
 	require.NoError(t, err)
 	assert.Nil(t, zones, "nil zones when cache not ready — caller uses fallback per-call client")
+}
+
+func TestAzureCache_FillAllRetryLogsOnlyAfterAllAttempts(t *testing.T) {
+	// fillAll should not mark a region as failed if a later retry succeeds.
+	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
+
+	var attempts int
+	cache := &AzureCache{
+		data:         make(map[string]map[string][]string),
+		providerSpec: spec,
+		secretFetcher: func() (*unstructured.Unstructured, error) {
+			return buildAzureSecret(), nil
+		},
+		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
+			attempts++
+			if attempts == 1 {
+				return &mockSKUsAPI{err: assert.AnError}, nil
+			}
+			return &mockSKUsAPI{skus: []*armcompute.ResourceSKU{
+				buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
+			}}, nil
+		},
+	}
+
+	cache.fillAll(context.Background())
+
+	assert.True(t, cache.Ready("westeurope"), "region should be ready after successful retry")
+}
+
+func TestAzureCache_FillAllRetryExhausted(t *testing.T) {
+	// fillAll logs error only after all retries are exhausted.
+	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
+
+	cache := &AzureCache{
+		data:         make(map[string]map[string][]string),
+		providerSpec: spec,
+		secretFetcher: func() (*unstructured.Unstructured, error) {
+			return buildAzureSecret(), nil
+		},
+		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
+			return &mockSKUsAPI{err: assert.AnError}, nil
+		},
+	}
+
+	cache.fillAll(context.Background())
+
+	assert.False(t, cache.Ready("westeurope"), "region must not be ready when all retries fail")
 }

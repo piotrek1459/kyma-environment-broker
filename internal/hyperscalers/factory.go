@@ -46,8 +46,6 @@ func (f *hyperscalerFactory) NewFromSecret(ctx context.Context, provider pkg.Clo
 		// Falls back to per-call client if cache is not yet ready (lazy fill in progress).
 		// Note: the cached client uses zone data from the startup secret, not the caller-provided
 		// secret. This is intentional — the cache trades per-subscription accuracy for speed.
-		// The async DiscoverAvailableZonesCBStep always uses a per-call client with the exact
-		// Kyma-specific secret for accurate zone assignment.
 		if f.azureCache != nil && f.azureCache.Ready(region) {
 			return azure.NewCachedClient(f.azureCache, region, f.providerSpec), nil
 		}

@@ -43,6 +43,22 @@ func TestExtractCredentials_MissingField(t *testing.T) {
 	assert.Contains(t, err.Error(), "clientSecret")
 }
 
+func TestExtractSubscriptionID_Success(t *testing.T) {
+	secret := buildSecret(map[string]string{"subscriptionID": "my-sub-id"})
+	id, err := ExtractSubscriptionID(secret)
+	require.NoError(t, err)
+	assert.Equal(t, "my-sub-id", id)
+}
+
+func TestExtractSubscriptionID_NoData(t *testing.T) {
+	// Secret with no data field — must return explicit error, not a nil-wrapped one.
+	s := &unstructured.Unstructured{}
+	s.Object = map[string]interface{}{}
+	_, err := ExtractSubscriptionID(s)
+	require.Error(t, err)
+	assert.Equal(t, "secret does not contain data", err.Error())
+}
+
 func TestAvailableZones_HappyPath(t *testing.T) {
 	skus := []*armcompute.ResourceSKU{
 		buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
@@ -134,6 +150,25 @@ func TestAvailableZonesCount(t *testing.T) {
 	count, err := client.AvailableZonesCount(context.Background(), "Standard_D4s_v5")
 	require.NoError(t, err)
 	assert.Equal(t, 3, count)
+}
+
+func TestAzureClient_RetryOnFillCacheError(t *testing.T) {
+	// AzureClient.fillCache retries exactly 'retries' times on persistent API error.
+	spec := buildProviderSpec([]string{"Standard_D4s_v5"})
+	callCount := 0
+
+	client := &AzureClient{
+		skusClient: &countingMockSKUsAPI{
+			callCounter: &callCount,
+			err:         assert.AnError,
+		},
+		region:       "westeurope",
+		providerSpec: spec,
+	}
+
+	err := client.fillCache(context.Background())
+	require.Error(t, err)
+	assert.Equal(t, retries, callCount)
 }
 
 // --- helpers ---
