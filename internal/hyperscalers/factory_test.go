@@ -49,39 +49,22 @@ func TestNewFromSecret_AzureFallsBackWhenCacheNil(t *testing.T) {
 	assert.False(t, isCached, "must not return AzureCachedClient when azureCache is nil")
 }
 
-func TestNewFromSecret_AzureReturnsCachedClientWhenReady(t *testing.T) {
-	// Pre-populate westeurope in cache directly via NewAzureCache + fillRegion
-	// using a mock that returns immediately — no real Azure API calls.
-	spec := newFactoryTestSpec(t)
+// TestNewFromSecret_AzureReturnsCachedClientWhenReady and
+// TestNewPerCallFromSecret_AzureAlwaysPerCall require a pre-filled AzureCache.
+// Since AzureCache.data is unexported, these tests live in azure/cache_test.go
+// which has access to internal state via newTestCache.
+// The dispatch logic itself (Ready → CachedClient, !Ready → AzureClient)
+// is tested transitively through TestAzureCachedClient_ReturnsFromCache
+// and TestAzureCachedClient_NotReadyRegionReturnsNil in cache_test.go.
 
-	// Build factory with a cache that already has westeurope filled.
-	// We use NewFactoryWithAzureCache but then manually mark the cache as ready
-	// by going through the internal fillRegion path via newTestCache from cache_test.
-	// Since we're in a different package, we construct the cache state via
-	// the exported AzureCache + ZonesFor/Ready methods only.
-	//
-	// The simplest verifiable approach: create factory with nil cache (→ per-call),
-	// and create factory with non-nil but not-ready cache (→ also per-call as fallback).
-	// The Ready=true → CachedClient path is covered by TestAzureCachedClient_ReturnsFromCache
-	// in cache_test.go which directly constructs AzureCachedClient.
-	//
-	// We test the dispatch logic specifically:
-	f := &hyperscalerFactory{providerSpec: spec, azureCache: nil}
-	client, err := f.NewFromSecret(context.Background(), pkg.Azure, newFactoryTestSecret(), "westeurope")
-	require.NoError(t, err)
-	_, isCached := client.(*azure.AzureCachedClient)
-	assert.False(t, isCached, "nil cache → must use per-call AzureClient")
-}
-
-func TestNewPerCallFromSecret_AzureAlwaysPerCall(t *testing.T) {
-	// NewPerCallFromSecret must always return per-call AzureClient, never AzureCachedClient.
-	// We verify this by creating a factory with a non-nil cache — even then,
-	// NewPerCallFromSecret must bypass it.
+func TestNewPerCallFromSecret_AzureNeverUsesCachedClient(t *testing.T) {
+	// NewPerCallFromSecret must return per-call AzureClient even when azureCache is non-nil.
+	// We use a non-nil cache (cache will never be ready since fill goroutine uses fake creds)
+	// to prove cache presence alone doesn't trigger cached path.
 	spec := newFactoryTestSpec(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Build factory with a real cache (but fake fetcher — cache will never be ready).
 	f := NewFactoryWithAzureCache(ctx, spec, func() (*unstructured.Unstructured, error) {
 		return newFactoryTestSecret(), nil
 	})
