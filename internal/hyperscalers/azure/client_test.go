@@ -205,7 +205,10 @@ func buildProviderSpec(machineNames []string) *configuration.ProviderSpec {
 		machines += fmt.Sprintf("    %q: %q\n", name, name)
 	}
 	yaml := fmt.Sprintf("azure:\n  zonesDiscovery: true\n  machines:\n%s", machines)
-	spec, _ := configuration.NewProviderSpec(strings.NewReader(yaml))
+	spec, err := configuration.NewProviderSpec(strings.NewReader(yaml))
+	if err != nil {
+		panic(fmt.Sprintf("buildProviderSpec: failed to parse spec: %v", err))
+	}
 	return spec
 }
 

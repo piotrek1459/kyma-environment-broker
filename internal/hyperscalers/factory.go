@@ -54,3 +54,17 @@ func (f *hyperscalerFactory) NewFromSecret(ctx context.Context, provider pkg.Clo
 		return nil, fmt.Errorf("zone discovery not supported for provider %s", provider)
 	}
 }
+
+// NewPerCallFromSecret always creates a fresh per-call client, bypassing the global cache.
+// Used by the async DiscoverAvailableZonesCBStep to ensure zone discovery uses
+// the exact Kyma-specific subscription secret for accurate per-subscription results.
+func (f *hyperscalerFactory) NewPerCallFromSecret(ctx context.Context, provider pkg.CloudProvider, secret *unstructured.Unstructured, region string) (ProviderClient, error) {
+	switch provider {
+	case pkg.AWS:
+		return aws.NewClientFromSecret(ctx, f.providerSpec, secret, region)
+	case pkg.Azure:
+		return azure.NewClientFromSecret(ctx, f.providerSpec, secret, region)
+	default:
+		return nil, fmt.Errorf("zone discovery not supported for provider %s", provider)
+	}
+}

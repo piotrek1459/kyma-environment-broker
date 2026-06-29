@@ -1213,11 +1213,16 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
 	}
 
-	log.Info(fmt.Sprintf("validating zones using secret %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
-
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create hyperscaler client: %w", err)
+	}
+
+	type cacheClient interface{ IsFromCache() bool }
+	if cc, ok := client.(cacheClient); ok && cc.IsFromCache() {
+		log.Info(fmt.Sprintf("validating zones for region=%s using global cache", values.Region))
+	} else {
+		log.Info(fmt.Sprintf("validating zones using secret %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
 	}
 
 	return client, nil

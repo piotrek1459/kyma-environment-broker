@@ -128,6 +128,13 @@ func (f *FakeFactory) NewFromSecret(_ context.Context, _ pkg.CloudProvider, _ *u
 	return &fakeProviderClient{zones: f.zones}, nil
 }
 
+func (f *FakeFactory) NewPerCallFromSecret(_ context.Context, _ pkg.CloudProvider, _ *unstructured.Unstructured, _ string) (hyperscalers.ProviderClient, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &fakeProviderClient{zones: f.zones}, nil
+}
+
 type fakeProviderClient struct {
 	zones map[string][]string
 }

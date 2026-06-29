@@ -80,7 +80,9 @@ func (s *DiscoverAvailableZonesCBStep) Run(operation internal.Operation, log *sl
 
 	log.Info(fmt.Sprintf("discovering zones using credentials binding %s region=%s", subscriptionSecretName, operation.ProviderValues.Region))
 
-	client, err := s.factory.NewFromSecret(context.Background(), provider, secret, operation.ProviderValues.Region)
+	// Always use a per-call client with the exact Kyma-specific secret to ensure
+	// zone discovery reflects the actual subscription restrictions for this instance.
+	client, err := s.factory.NewPerCallFromSecret(context.Background(), provider, secret, operation.ProviderValues.Region)
 	if err != nil {
 		return s.operationManager.RetryOperation(operation, fmt.Sprintf("unable to create %s client", provider), err, 10*time.Second, time.Minute, log)
 	}
