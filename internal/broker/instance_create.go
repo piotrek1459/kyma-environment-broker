@@ -1174,12 +1174,7 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("unable to create hyperscaler client: %w", err)
 	}
 
-	type cacheClient interface{ IsFromCache() bool }
-	if cc, ok := client.(cacheClient); ok && cc.IsFromCache() {
-		log.Info(fmt.Sprintf("validating zones for region=%s using global cache", values.Region))
-	} else {
-		log.Info(fmt.Sprintf("validating zones using secret %s/%s region=%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), values.Region))
-	}
+	log.Info(fmt.Sprintf("validating zones for region=%s secret=%s/%s", values.Region, credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
 
 	return client, nil
 }

@@ -197,9 +197,6 @@ func NewCachedClient(cache *AzureCache, region string, providerSpec *configurati
 	return &AzureCachedClient{cache: cache, region: region, providerSpec: providerSpec}
 }
 
-// IsFromCache returns true — identifies this client as backed by the global cache.
-func (c *AzureCachedClient) IsFromCache() bool { return true }
-
 func (c *AzureCachedClient) AvailableZones(_ context.Context, machineType string) ([]string, error) {
 	machineType = c.providerSpec.ResolveMachineType(pkg.Azure, machineType)
 	return c.cache.ZonesFor(c.region, machineType), nil
