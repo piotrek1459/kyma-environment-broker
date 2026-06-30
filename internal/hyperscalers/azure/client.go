@@ -34,7 +34,7 @@ type AzureClient struct {
 	region       string
 	providerSpec *configuration.ProviderSpec
 	cache        map[string][]string
-	cacheDone    bool
+	cacheLoaded bool
 }
 
 func NewClientFromSecret(ctx context.Context, providerSpec *configuration.ProviderSpec, secret *unstructured.Unstructured, region string) (*AzureClient, error) {
@@ -63,7 +63,7 @@ func NewClientFromSecret(ctx context.Context, providerSpec *configuration.Provid
 func (c *AzureClient) AvailableZones(ctx context.Context, machineType string) ([]string, error) {
 	machineType = c.providerSpec.ResolveMachineType(pkg.Azure, machineType)
 
-	if err := c.fillCache(ctx); err != nil {
+	if err := c.ensureZonesLoaded(ctx); err != nil {
 		return nil, err
 	}
 
@@ -78,8 +78,8 @@ func (c *AzureClient) AvailableZonesCount(ctx context.Context, machineType strin
 	return len(zones), nil
 }
 
-func (c *AzureClient) fillCache(ctx context.Context) error {
-	if c.cacheDone {
+func (c *AzureClient) ensureZonesLoaded(ctx context.Context) error {
+	if c.cacheLoaded {
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (c *AzureClient) tryFillCache(ctx context.Context) error {
 		return err
 	}
 	c.cache = zones
-	c.cacheDone = true
+	c.cacheLoaded = true
 	slog.Info(fmt.Sprintf("Azure ResourceSKUs loaded for region %s (%d machine types cached)", c.region, len(c.cache)))
 	return nil
 }

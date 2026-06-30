@@ -153,7 +153,7 @@ func TestAvailableZonesCount(t *testing.T) {
 }
 
 func TestAzureClient_RetryOnFillCacheError(t *testing.T) {
-	// AzureClient.fillCache retries exactly 'retries' times on persistent API error.
+	// AzureClient.ensureZonesLoaded retries exactly 'retries' times on persistent API error.
 	spec := buildProviderSpec([]string{"Standard_D4s_v5"})
 	callCount := 0
 
@@ -166,7 +166,7 @@ func TestAzureClient_RetryOnFillCacheError(t *testing.T) {
 		providerSpec: spec,
 	}
 
-	err := client.fillCache(context.Background())
+	err := client.ensureZonesLoaded(context.Background())
 	require.Error(t, err)
 	assert.Equal(t, retries, callCount)
 }
