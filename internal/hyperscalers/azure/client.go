@@ -120,13 +120,7 @@ func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 		return nil
 	}
 
-	available := make(map[string]struct{})
-	for _, z := range sku.LocationInfo[0].Zones {
-		if z != nil {
-			available[*z] = struct{}{}
-		}
-	}
-
+	restricted := make(map[string]struct{})
 	for _, restriction := range sku.Restrictions {
 		if restriction.Type == nil || *restriction.Type != armcompute.ResourceSKURestrictionsTypeZone {
 			continue
@@ -136,14 +130,19 @@ func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 		}
 		for _, z := range restriction.RestrictionInfo.Zones {
 			if z != nil {
-				delete(available, *z)
+				restricted[*z] = struct{}{}
 			}
 		}
 	}
 
-	zones := make([]string, 0, len(available))
-	for z := range available {
-		zones = append(zones, z)
+	var zones []string
+	for _, z := range sku.LocationInfo[0].Zones {
+		if z == nil {
+			continue
+		}
+		if _, ok := restricted[*z]; !ok {
+			zones = append(zones, *z)
+		}
 	}
 	return zones
 }
