@@ -135,6 +135,8 @@ func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 		}
 	}
 
+	// LocationInfo[0] is the entry for the queried region — the pager is filtered
+	// by location, so the API always returns exactly one LocationInfo element.
 	var zones []string
 	for _, z := range sku.LocationInfo[0].Zones {
 		if z == nil {
@@ -155,7 +157,7 @@ func ExtractSubscriptionID(secret *unstructured.Unstructured) (string, error) {
 	if !found {
 		return "", fmt.Errorf("secret does not contain data")
 	}
-	return decodeField(data, "subscriptionID")
+	return extractField(data, "subscriptionID")
 }
 
 func ExtractCredentials(secret *unstructured.Unstructured) (AzureCredentials, error) {
@@ -167,19 +169,19 @@ func ExtractCredentials(secret *unstructured.Unstructured) (AzureCredentials, er
 		return AzureCredentials{}, fmt.Errorf("secret does not contain data")
 	}
 
-	clientID, err := decodeField(data, "clientID")
+	clientID, err := extractField(data, "clientID")
 	if err != nil {
 		return AzureCredentials{}, err
 	}
-	clientSecret, err := decodeField(data, "clientSecret")
+	clientSecret, err := extractField(data, "clientSecret")
 	if err != nil {
 		return AzureCredentials{}, err
 	}
-	tenantID, err := decodeField(data, "tenantID")
+	tenantID, err := extractField(data, "tenantID")
 	if err != nil {
 		return AzureCredentials{}, err
 	}
-	subscriptionID, err := decodeField(data, "subscriptionID")
+	subscriptionID, err := extractField(data, "subscriptionID")
 	if err != nil {
 		return AzureCredentials{}, err
 	}
@@ -192,7 +194,7 @@ func ExtractCredentials(secret *unstructured.Unstructured) (AzureCredentials, er
 	}, nil
 }
 
-func decodeField(data map[string]string, field string) (string, error) {
+func extractField(data map[string]string, field string) (string, error) {
 	raw, ok := data[field]
 	if !ok {
 		return "", fmt.Errorf("secret does not contain %s", field)
