@@ -97,48 +97,24 @@ func (c *AzureClient) fillCache(ctx context.Context) error {
 }
 
 func (c *AzureClient) tryFillCache(ctx context.Context) error {
-	c.cache = make(map[string][]string)
-
-	supported := make(map[string]struct{})
+	supportedMachineTypes := make(map[string]struct{})
 	for _, mt := range c.providerSpec.MachineTypes(pkg.Azure) {
-		supported[mt] = struct{}{}
+		supportedMachineTypes[mt] = struct{}{}
 	}
-
 	slog.Info(fmt.Sprintf("querying Azure ResourceSKUs for region %s", c.region))
-
-	filter := fmt.Sprintf("location eq '%s'", c.region)
-	pager := c.skusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-		Filter: &filter,
-	})
-
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list Azure resource SKUs: %w", err)
-		}
-
-		for _, sku := range page.Value {
-			if sku.ResourceType == nil || *sku.ResourceType != resourceTypeVirtualMachines {
-				continue
-			}
-			if sku.Name == nil {
-				continue
-			}
-			if _, ok := supported[*sku.Name]; !ok {
-				continue
-			}
-
-			c.cache[*sku.Name] = availableZonesFromSKU(sku)
-		}
+	zones, err := fetchZonesBySKU(ctx, c.skusClient, c.region, supportedMachineTypes)
+	if err != nil {
+		return err
 	}
-
+	c.cache = zones
 	c.cacheDone = true
 	slog.Info(fmt.Sprintf("Azure ResourceSKUs loaded for region %s (%d machine types cached)", c.region, len(c.cache)))
 	return nil
 }
 
 // availableZonesFromSKU returns zones where the SKU is available,
-// excluding zones with zone-type restrictions.
+// excluding zones covered by zone-type restrictions.
+// Multiple restrictions of type Zone are all applied — each subtracts its zones from the available set.
 func availableZonesFromSKU(sku *armcompute.ResourceSKU) []string {
 	if len(sku.LocationInfo) == 0 {
 		return nil
