@@ -34,7 +34,7 @@ type AzureClient struct {
 	region       string
 	providerSpec *configuration.ProviderSpec
 	cache        map[string][]string
-	cacheLoaded bool
+	cacheLoaded  bool
 }
 
 func NewClientFromSecret(ctx context.Context, providerSpec *configuration.ProviderSpec, secret *unstructured.Unstructured, region string) (*AzureClient, error) {
