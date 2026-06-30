@@ -294,3 +294,26 @@ func (m *countingMockSKUsAPI) NewListPager(_ *armcompute.ResourceSKUsClientListO
 		},
 	})
 }
+
+type callbackMockSKUsAPI struct {
+	callback func() ([]*armcompute.ResourceSKU, error)
+}
+
+func (m *callbackMockSKUsAPI) NewListPager(_ *armcompute.ResourceSKUsClientListOptions) *runtime.Pager[armcompute.ResourceSKUsClientListResponse] {
+	called := false
+	return runtime.NewPager(runtime.PagingHandler[armcompute.ResourceSKUsClientListResponse]{
+		More: func(page armcompute.ResourceSKUsClientListResponse) bool {
+			return !called
+		},
+		Fetcher: func(ctx context.Context, _ *armcompute.ResourceSKUsClientListResponse) (armcompute.ResourceSKUsClientListResponse, error) {
+			called = true
+			skus, err := m.callback()
+			if err != nil {
+				return armcompute.ResourceSKUsClientListResponse{}, err
+			}
+			return armcompute.ResourceSKUsClientListResponse{
+				ResourceSKUsResult: armcompute.ResourceSKUsResult{Value: skus},
+			}, nil
+		},
+	})
+}

@@ -116,9 +116,18 @@ func (c *AzureCache) fillAll(ctx context.Context) {
 }
 
 func (c *AzureCache) fillRegionWithRetry(ctx context.Context, creds AzureCredentials, region string) error {
+	credential, err := azidentity.NewClientSecretCredential(creds.TenantID, creds.ClientID, creds.ClientSecret, nil)
+	if err != nil {
+		return fmt.Errorf("while creating Azure credential: %w", err)
+	}
+	skusClient, err := c.skusClientFactory(creds.SubscriptionID, credential)
+	if err != nil {
+		return fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
+	}
+
 	var lastErr error
 	for i := 0; i < cacheRetries; i++ {
-		if err := c.fillRegion(ctx, creds, region); err == nil {
+		if err := c.fillRegion(ctx, skusClient, region); err == nil {
 			return nil
 		} else {
 			lastErr = err
@@ -132,18 +141,8 @@ func (c *AzureCache) fillRegionWithRetry(ctx context.Context, creds AzureCredent
 	return lastErr
 }
 
-func (c *AzureCache) fillRegion(ctx context.Context, creds AzureCredentials, region string) error {
+func (c *AzureCache) fillRegion(ctx context.Context, skusClient ResourceSKUsAPI, region string) error {
 	slog.Info(fmt.Sprintf("filling Azure zone cache for region %s", region))
-
-	credential, err := azidentity.NewClientSecretCredential(creds.TenantID, creds.ClientID, creds.ClientSecret, nil)
-	if err != nil {
-		return fmt.Errorf("while creating Azure credential: %w", err)
-	}
-
-	skusClient, err := c.skusClientFactory(creds.SubscriptionID, credential)
-	if err != nil {
-		return fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
-	}
 
 	supportedMachineTypes := make(map[string]struct{})
 	for _, mt := range c.providerSpec.MachineTypes(pkg.Azure) {

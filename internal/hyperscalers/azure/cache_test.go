@@ -53,15 +53,23 @@ func newTestCache(spec *configuration.ProviderSpec, skus []*armcompute.ResourceS
 	}
 }
 
+func newTestCacheWithMock(spec *configuration.ProviderSpec, api ResourceSKUsAPI) *AzureCache {
+	return &AzureCache{
+		data:              make(map[string]map[string][]string),
+		providerSpec:      spec,
+		skusClientFactory: mockSKUsClientFactory(api),
+	}
+}
+
 func TestAzureCache_FillAndRead(t *testing.T) {
 	skus := []*armcompute.ResourceSKU{
 		buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
 		buildSKU("Standard_F8s_v2", []string{"1", "2"}, nil),
 	}
 	spec := buildCacheSpec([]string{"Standard_D4s_v5", "Standard_F8s_v2"})
-	cache := newTestCache(spec, skus, nil)
+	cache := newTestCacheWithMock(spec, &mockSKUsAPI{skus: skus})
 
-	err := cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope")
+	err := cache.fillRegion(context.Background(), &mockSKUsAPI{skus: skus}, "westeurope")
 	require.NoError(t, err)
 
 	assert.True(t, cache.Ready("westeurope"))
@@ -117,9 +125,10 @@ func TestAzureCache_ConcurrentReads(t *testing.T) {
 		buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
 	}
 	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
-	cache := newTestCache(spec, skus, nil)
+	api := &mockSKUsAPI{skus: skus}
+	cache := newTestCacheWithMock(spec, api)
 
-	require.NoError(t, cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope"))
+	require.NoError(t, cache.fillRegion(context.Background(), api, "westeurope"))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
@@ -133,7 +142,7 @@ func TestAzureCache_ConcurrentReads(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope")
+		_ = cache.fillRegion(context.Background(), api, "westeurope")
 	}()
 	wg.Wait()
 }
@@ -143,9 +152,10 @@ func TestAzureCachedClient_ReturnsFromCache(t *testing.T) {
 		buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
 	}
 	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
-	cache := newTestCache(spec, skus, nil)
+	api := &mockSKUsAPI{skus: skus}
+	cache := newTestCacheWithMock(spec, api)
 
-	require.NoError(t, cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope"))
+	require.NoError(t, cache.fillRegion(context.Background(), api, "westeurope"))
 
 	client := NewCachedClient(cache, "westeurope", spec)
 
@@ -176,21 +186,23 @@ func TestAzureCache_FillAllRetryLogsOnlyAfterAllAttempts(t *testing.T) {
 	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
 
 	var attempts int
-	cache := &AzureCache{
-		data:         make(map[string]map[string][]string),
-		providerSpec: spec,
-		secretFetcher: func() (AzureCredentials, error) {
-			return buildAzureCredentials(), nil
-		},
-		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
+	failThenSucceedAPI := &callbackMockSKUsAPI{
+		callback: func() ([]*armcompute.ResourceSKU, error) {
 			attempts++
 			if attempts == 1 {
-				return &mockSKUsAPI{err: assert.AnError}, nil
+				return nil, assert.AnError
 			}
-			return &mockSKUsAPI{skus: []*armcompute.ResourceSKU{
+			return []*armcompute.ResourceSKU{
 				buildSKU("Standard_D4s_v5", []string{"1", "2", "3"}, nil),
-			}}, nil
+			}, nil
 		},
+	}
+
+	cache := &AzureCache{
+		data:              make(map[string]map[string][]string),
+		providerSpec:      spec,
+		secretFetcher:     func() (AzureCredentials, error) { return buildAzureCredentials(), nil },
+		skusClientFactory: mockSKUsClientFactory(failThenSucceedAPI),
 	}
 
 	cache.fillAll(context.Background())
