@@ -229,3 +229,22 @@ func TestAzureCache_FillAllRetryExhausted(t *testing.T) {
 
 	assert.False(t, cache.Ready("westeurope"), "region must not be ready when all retries fail")
 }
+
+func TestAzureCache_ClientFactoryError_NoRetry(t *testing.T) {
+	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
+	var attempts int
+	cache := &AzureCache{
+		data:         make(map[string]map[string][]string),
+		providerSpec: spec,
+		secretFetcher: func() (AzureCredentials, error) { return buildAzureCredentials(), nil },
+		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
+			attempts++
+			return nil, assert.AnError
+		},
+	}
+
+	cache.fillAll(context.Background())
+
+	assert.Equal(t, 1, attempts, "skusClientFactory must not be retried on client creation error")
+	assert.False(t, cache.Ready("westeurope"))
+}
