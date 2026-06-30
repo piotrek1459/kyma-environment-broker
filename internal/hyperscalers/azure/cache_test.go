@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,21 +13,15 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func buildAzureSecret() *unstructured.Unstructured {
-	enc := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
-	s := &unstructured.Unstructured{}
-	s.Object = map[string]interface{}{
-		"data": map[string]interface{}{
-			"clientID":       enc("test-client-id"),
-			"clientSecret":   enc("test-client-secret"),
-			"tenantID":       enc("test-tenant-id"),
-			"subscriptionID": enc("test-subscription-id"),
-		},
+func buildAzureCredentials() AzureCredentials {
+	return AzureCredentials{
+		ClientID:       "test-client-id",
+		ClientSecret:   "test-client-secret",
+		TenantID:       "test-tenant-id",
+		SubscriptionID: "test-subscription-id",
 	}
-	return s
 }
 
 func buildCacheSpec(machineNames []string) *configuration.ProviderSpec {
@@ -55,7 +48,7 @@ func newTestCache(spec *configuration.ProviderSpec, skus []*armcompute.ResourceS
 	return &AzureCache{
 		data:              make(map[string]map[string][]string),
 		providerSpec:      spec,
-		secretFetcher:     func() (*unstructured.Unstructured, error) { return buildAzureSecret(), nil },
+		secretFetcher:     func() (AzureCredentials, error) { return buildAzureCredentials(), nil },
 		skusClientFactory: mockSKUsClientFactory(&mockSKUsAPI{skus: skus, err: apiErr}),
 	}
 }
@@ -68,7 +61,7 @@ func TestAzureCache_FillAndRead(t *testing.T) {
 	spec := buildCacheSpec([]string{"Standard_D4s_v5", "Standard_F8s_v2"})
 	cache := newTestCache(spec, skus, nil)
 
-	err := cache.fillRegion(context.Background(), buildAzureSecret(), "westeurope")
+	err := cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope")
 	require.NoError(t, err)
 
 	assert.True(t, cache.Ready("westeurope"))
@@ -83,8 +76,8 @@ func TestAzureCache_SecretFetcherError(t *testing.T) {
 	cache := &AzureCache{
 		data:         make(map[string]map[string][]string),
 		providerSpec: spec,
-		secretFetcher: func() (*unstructured.Unstructured, error) {
-			return nil, assert.AnError
+		secretFetcher: func() (AzureCredentials, error) {
+			return AzureCredentials{}, assert.AnError
 		},
 		skusClientFactory: defaultSKUsClientFactory,
 	}
@@ -126,7 +119,7 @@ func TestAzureCache_ConcurrentReads(t *testing.T) {
 	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
 	cache := newTestCache(spec, skus, nil)
 
-	require.NoError(t, cache.fillRegion(context.Background(), buildAzureSecret(), "westeurope"))
+	require.NoError(t, cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope"))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
@@ -140,7 +133,7 @@ func TestAzureCache_ConcurrentReads(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = cache.fillRegion(context.Background(), buildAzureSecret(), "westeurope")
+		_ = cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope")
 	}()
 	wg.Wait()
 }
@@ -152,7 +145,7 @@ func TestAzureCachedClient_ReturnsFromCache(t *testing.T) {
 	spec := buildCacheSpec([]string{"Standard_D4s_v5"})
 	cache := newTestCache(spec, skus, nil)
 
-	require.NoError(t, cache.fillRegion(context.Background(), buildAzureSecret(), "westeurope"))
+	require.NoError(t, cache.fillRegion(context.Background(), buildAzureCredentials(), "westeurope"))
 
 	client := NewCachedClient(cache, "westeurope", spec)
 
@@ -186,8 +179,8 @@ func TestAzureCache_FillAllRetryLogsOnlyAfterAllAttempts(t *testing.T) {
 	cache := &AzureCache{
 		data:         make(map[string]map[string][]string),
 		providerSpec: spec,
-		secretFetcher: func() (*unstructured.Unstructured, error) {
-			return buildAzureSecret(), nil
+		secretFetcher: func() (AzureCredentials, error) {
+			return buildAzureCredentials(), nil
 		},
 		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
 			attempts++
@@ -212,8 +205,8 @@ func TestAzureCache_FillAllRetryExhausted(t *testing.T) {
 	cache := &AzureCache{
 		data:         make(map[string]map[string][]string),
 		providerSpec: spec,
-		secretFetcher: func() (*unstructured.Unstructured, error) {
-			return buildAzureSecret(), nil
+		secretFetcher: func() (AzureCredentials, error) {
+			return buildAzureCredentials(), nil
 		},
 		skusClientFactory: func(_ string, _ *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error) {
 			return &mockSKUsAPI{err: assert.AnError}, nil

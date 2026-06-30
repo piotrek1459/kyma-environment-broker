@@ -11,7 +11,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/provider/configuration"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -20,9 +19,18 @@ const (
 	cacheRetryInterval = 2 * time.Second
 )
 
-// SecretFetcher fetches the current Azure credentials secret from Gardener.
+// AzureCredentials holds the decoded Azure service principal credentials
+// extracted from a Gardener secret.
+type AzureCredentials struct {
+	ClientID       string
+	ClientSecret   string
+	TenantID       string
+	SubscriptionID string
+}
+
+// SecretFetcher fetches and decodes the current Azure credentials from Gardener.
 // Called on every cache refresh to pick up rotated credentials.
-type SecretFetcher func() (*unstructured.Unstructured, error)
+type SecretFetcher func() (AzureCredentials, error)
 
 // SKUsClientFactory creates a ResourceSKUsAPI from credentials.
 // Replaceable in tests to avoid real Azure API calls.
@@ -93,9 +101,9 @@ func (c *AzureCache) run(ctx context.Context) {
 }
 
 func (c *AzureCache) fillAll(ctx context.Context) {
-	secret, err := c.secretFetcher()
+	creds, err := c.secretFetcher()
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to fetch Azure secret for cache refresh: %s", err))
+		slog.Error(fmt.Sprintf("failed to fetch Azure credentials for cache refresh: %s", err))
 		return
 	}
 
@@ -104,7 +112,7 @@ func (c *AzureCache) fillAll(ctx context.Context) {
 		var filled bool
 		var lastErr error
 		for i := 0; i < cacheRetries; i++ {
-			if err := c.fillRegion(ctx, secret, region); err == nil {
+			if err := c.fillRegion(ctx, creds, region); err == nil {
 				filled = true
 				break
 			} else {
@@ -122,20 +130,15 @@ func (c *AzureCache) fillAll(ctx context.Context) {
 	}
 }
 
-func (c *AzureCache) fillRegion(ctx context.Context, secret *unstructured.Unstructured, region string) error {
+func (c *AzureCache) fillRegion(ctx context.Context, creds AzureCredentials, region string) error {
 	slog.Info(fmt.Sprintf("filling Azure zone cache for region %s", region))
 
-	clientID, clientSecret, tenantID, subscriptionID, err := ExtractCredentials(secret)
-	if err != nil {
-		return fmt.Errorf("failed to extract Azure credentials: %w", err)
-	}
-
-	credential, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
+	credential, err := azidentity.NewClientSecretCredential(creds.TenantID, creds.ClientID, creds.ClientSecret, nil)
 	if err != nil {
 		return fmt.Errorf("while creating Azure credential: %w", err)
 	}
 
-	skusClient, err := c.skusClientFactory(subscriptionID, credential)
+	skusClient, err := c.skusClientFactory(creds.SubscriptionID, credential)
 	if err != nil {
 		return fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
 	}

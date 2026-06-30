@@ -54,7 +54,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/vrischmann/envconfig"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -692,19 +691,28 @@ func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rule
 	}
 	labelSelector := subscriptions.NewLabelSelectorFromRuleset(matchedRule).BuildAnySubscription()
 
-	return func() (*unstructured.Unstructured, error) {
+	return func() (azurehyperscaler.AzureCredentials, error) {
 		credentialsBindings, err := gardenerClient.GetCredentialsBindings(labelSelector)
 		if err != nil {
-			return nil, fmt.Errorf("while getting Azure credentials bindings: %w", err)
+			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("while getting Azure credentials bindings: %w", err)
 		}
 		if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
-			return nil, fmt.Errorf("no Azure credentials bindings found for selector %q", labelSelector)
+			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("no Azure credentials bindings found for selector %q", labelSelector)
 		}
 		cb := gardener.NewCredentialsBinding(credentialsBindings.Items[0])
 		secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
 		if err != nil {
-			return nil, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
+			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
 		}
-		return secret, nil
+		clientID, clientSecret, tenantID, subscriptionID, err := azurehyperscaler.ExtractCredentials(secret)
+		if err != nil {
+			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("failed to extract Azure credentials: %w", err)
+		}
+		return azurehyperscaler.AzureCredentials{
+			ClientID:       clientID,
+			ClientSecret:   clientSecret,
+			TenantID:       tenantID,
+			SubscriptionID: subscriptionID,
+		}, nil
 	}, nil
 }

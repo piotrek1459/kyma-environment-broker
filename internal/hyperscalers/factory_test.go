@@ -14,6 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func newFactoryTestCredentials() azure.AzureCredentials {
+	return azure.AzureCredentials{
+		ClientID:       "test-client-id",
+		ClientSecret:   "test-client-secret",
+		TenantID:       "test-tenant-id",
+		SubscriptionID: "test-subscription-id",
+	}
+}
+
 func TestNewFactory_NoAzureCache(t *testing.T) {
 	spec := newFactoryTestSpec(t)
 	f := NewFactory(spec)
@@ -30,7 +39,7 @@ func TestNewFactoryWithAzureCache_NilFetcherNoCache(t *testing.T) {
 
 func TestNewFactoryWithAzureCache_CacheCreatedWhenFetcherProvided(t *testing.T) {
 	spec := newFactoryTestSpec(t)
-	fetcher := func() (*unstructured.Unstructured, error) { return newFactoryTestSecret(), nil }
+	fetcher := func() (azure.AzureCredentials, error) { return newFactoryTestCredentials(), nil }
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -65,8 +74,8 @@ func TestNewPerCallFromSecret_AzureNeverUsesCachedClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	f := NewFactoryWithAzureCache(ctx, spec, func() (*unstructured.Unstructured, error) {
-		return newFactoryTestSecret(), nil
+	f := NewFactoryWithAzureCache(ctx, spec, func() (azure.AzureCredentials, error) {
+		return newFactoryTestCredentials(), nil
 	})
 
 	client, err := f.NewPerCallFromSecret(context.Background(), pkg.Azure, newFactoryTestSecret(), "westeurope")
