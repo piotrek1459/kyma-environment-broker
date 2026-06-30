@@ -32,7 +32,7 @@ type AzureCredentials struct {
 // Called on every cache refresh to pick up rotated credentials.
 type SecretFetcher func() (AzureCredentials, error)
 
-// SKUsClientFactory creates a ResourceSKUsAPI from credentials.
+// SKUsClientFactory creates a ResourceSKUsAPI (SKU = Stock-Keeping Unit) from credentials.
 // Replaceable in tests to avoid real Azure API calls.
 type SKUsClientFactory func(subscriptionID string, credential *azidentity.ClientSecretCredential) (ResourceSKUsAPI, error)
 
@@ -77,7 +77,9 @@ func (c *AzureCache) ZonesFor(region, machineType string) []string {
 	return regionCache[machineType]
 }
 
-// Ready reports whether the cache has been filled for the given region.
+// Ready reports whether a fill attempt for the given region has completed successfully.
+// Returns true even if no matching machine types were found (empty map is a valid cache entry).
+// Returns false if the region was never attempted or all retries failed — callers fall back to a live API call.
 func (c *AzureCache) Ready(region string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -106,28 +108,28 @@ func (c *AzureCache) fillAll(ctx context.Context) {
 		slog.Error(fmt.Sprintf("failed to fetch Azure credentials for cache refresh: %s", err))
 		return
 	}
-
-	regions := c.providerSpec.Regions(pkg.Azure)
-	for _, region := range regions {
-		var filled bool
-		var lastErr error
-		for i := 0; i < cacheRetries; i++ {
-			if err := c.fillRegion(ctx, creds, region); err == nil {
-				filled = true
-				break
-			} else {
-				lastErr = err
-				select {
-				case <-time.After(cacheRetryInterval):
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-		if !filled {
-			slog.Error(fmt.Sprintf("failed to fill Azure zone cache for region %s after %d retries: %s", region, cacheRetries, lastErr))
+	for _, region := range c.providerSpec.Regions(pkg.Azure) {
+		if err := c.fillRegionWithRetry(ctx, creds, region); err != nil {
+			slog.Error(fmt.Sprintf("failed to fill Azure zone cache for region %s after %d retries: %s", region, cacheRetries, err))
 		}
 	}
+}
+
+func (c *AzureCache) fillRegionWithRetry(ctx context.Context, creds AzureCredentials, region string) error {
+	var lastErr error
+	for i := 0; i < cacheRetries; i++ {
+		if err := c.fillRegion(ctx, creds, region); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		select {
+		case <-time.After(cacheRetryInterval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return lastErr
 }
 
 func (c *AzureCache) fillRegion(ctx context.Context, creds AzureCredentials, region string) error {
@@ -143,37 +145,45 @@ func (c *AzureCache) fillRegion(ctx context.Context, creds AzureCredentials, reg
 		return fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
 	}
 
-	supported := make(map[string]struct{})
+	supportedMachineTypes := make(map[string]struct{})
 	for _, mt := range c.providerSpec.MachineTypes(pkg.Azure) {
-		supported[mt] = struct{}{}
+		supportedMachineTypes[mt] = struct{}{}
 	}
 
-	regionCache := make(map[string][]string)
+	zones, err := fetchZonesBySKU(ctx, skusClient, region, supportedMachineTypes)
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	c.data[region] = zones
+	c.mu.Unlock()
+
+	slog.Info(fmt.Sprintf("Azure zone cache filled for region %s (%d machine types)", region, len(zones)))
+	return nil
+}
+
+func fetchZonesBySKU(ctx context.Context, skusClient ResourceSKUsAPI, region string, supportedMachineTypes map[string]struct{}) (map[string][]string, error) {
+	result := make(map[string][]string)
 	filter := fmt.Sprintf("location eq '%s'", region)
 	pager := skusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{Filter: &filter})
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to list Azure resource SKUs for region %s: %w", region, err)
+			return nil, fmt.Errorf("failed to list Azure resource SKUs for region %s: %w", region, err)
 		}
 		for _, sku := range page.Value {
 			if sku.ResourceType == nil || *sku.ResourceType != resourceTypeVirtualMachines || sku.Name == nil {
 				continue
 			}
-			if _, ok := supported[*sku.Name]; !ok {
+			if _, ok := supportedMachineTypes[*sku.Name]; !ok {
 				continue
 			}
-			regionCache[*sku.Name] = availableZonesFromSKU(sku)
+			result[*sku.Name] = availableZonesFromSKU(sku)
 		}
 	}
-
-	c.mu.Lock()
-	c.data[region] = regionCache
-	c.mu.Unlock()
-
-	slog.Info(fmt.Sprintf("Azure zone cache filled for region %s (%d machine types)", region, len(regionCache)))
-	return nil
+	return result, nil
 }
 
 // AzureCachedClient implements hyperscalers.ProviderClient using the global AzureCache.
