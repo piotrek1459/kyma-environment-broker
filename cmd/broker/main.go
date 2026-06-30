@@ -711,15 +711,10 @@ func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rule
 		if err != nil {
 			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
 		}
-		clientID, clientSecret, tenantID, subscriptionID, err := azurehyperscaler.ExtractCredentials(secret)
+		creds, err := azurehyperscaler.ExtractCredentials(secret)
 		if err != nil {
 			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("failed to extract Azure credentials: %w", err)
 		}
-		return azurehyperscaler.AzureCredentials{
-			ClientID:       clientID,
-			ClientSecret:   clientSecret,
-			TenantID:       tenantID,
-			SubscriptionID: subscriptionID,
-		}, nil
+		return creds, nil
 	}, nil
 }

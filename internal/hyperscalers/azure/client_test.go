@@ -23,13 +23,13 @@ func TestExtractCredentials(t *testing.T) {
 		"subscriptionID": "subscription-id",
 	})
 
-	clientID, clientSecret, tenantID, subscriptionID, err := ExtractCredentials(secret)
+	creds, err := ExtractCredentials(secret)
 
 	require.NoError(t, err)
-	assert.Equal(t, "client-id", clientID)
-	assert.Equal(t, "client-secret", clientSecret)
-	assert.Equal(t, "tenant-id", tenantID)
-	assert.Equal(t, "subscription-id", subscriptionID)
+	assert.Equal(t, "client-id", creds.ClientID)
+	assert.Equal(t, "client-secret", creds.ClientSecret)
+	assert.Equal(t, "tenant-id", creds.TenantID)
+	assert.Equal(t, "subscription-id", creds.SubscriptionID)
 }
 
 func TestExtractCredentials_MissingField(t *testing.T) {
@@ -38,7 +38,7 @@ func TestExtractCredentials_MissingField(t *testing.T) {
 		// missing other fields
 	})
 
-	_, _, _, _, err := ExtractCredentials(secret)
+	_, err := ExtractCredentials(secret)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "clientSecret")
 }

@@ -38,17 +38,17 @@ type AzureClient struct {
 }
 
 func NewClientFromSecret(ctx context.Context, providerSpec *configuration.ProviderSpec, secret *unstructured.Unstructured, region string) (*AzureClient, error) {
-	clientID, clientSecret, tenantID, subscriptionID, err := ExtractCredentials(secret)
+	creds, err := ExtractCredentials(secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract Azure credentials: %w", err)
 	}
 
-	credential, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
+	credential, err := azidentity.NewClientSecretCredential(creds.TenantID, creds.ClientID, creds.ClientSecret, nil)
 	if err != nil {
 		return nil, fmt.Errorf("while creating Azure credential: %w", err)
 	}
 
-	skusClient, err := armcompute.NewResourceSKUsClient(subscriptionID, credential, nil)
+	skusClient, err := armcompute.NewResourceSKUsClient(creds.SubscriptionID, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("while creating Azure ResourceSKUs client: %w", err)
 	}
@@ -159,33 +159,38 @@ func ExtractSubscriptionID(secret *unstructured.Unstructured) (string, error) {
 	return decodeField(data, "subscriptionID")
 }
 
-func ExtractCredentials(secret *unstructured.Unstructured) (clientID, clientSecret, tenantID, subscriptionID string, err error) {
+func ExtractCredentials(secret *unstructured.Unstructured) (AzureCredentials, error) {
 	data, found, err := unstructured.NestedStringMap(secret.Object, "data")
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("unable to extract data from secret: %w", err)
+		return AzureCredentials{}, fmt.Errorf("unable to extract data from secret: %w", err)
 	}
 	if !found {
-		return "", "", "", "", fmt.Errorf("secret does not contain data")
+		return AzureCredentials{}, fmt.Errorf("secret does not contain data")
 	}
 
-	clientID, err = decodeField(data, "clientID")
+	clientID, err := decodeField(data, "clientID")
 	if err != nil {
-		return "", "", "", "", err
+		return AzureCredentials{}, err
 	}
-	clientSecret, err = decodeField(data, "clientSecret")
+	clientSecret, err := decodeField(data, "clientSecret")
 	if err != nil {
-		return "", "", "", "", err
+		return AzureCredentials{}, err
 	}
-	tenantID, err = decodeField(data, "tenantID")
+	tenantID, err := decodeField(data, "tenantID")
 	if err != nil {
-		return "", "", "", "", err
+		return AzureCredentials{}, err
 	}
-	subscriptionID, err = decodeField(data, "subscriptionID")
+	subscriptionID, err := decodeField(data, "subscriptionID")
 	if err != nil {
-		return "", "", "", "", err
+		return AzureCredentials{}, err
 	}
 
-	return clientID, clientSecret, tenantID, subscriptionID, nil
+	return AzureCredentials{
+		ClientID:       clientID,
+		ClientSecret:   clientSecret,
+		TenantID:       tenantID,
+		SubscriptionID: subscriptionID,
+	}, nil
 }
 
 func decodeField(data map[string]string, field string) (string, error) {
