@@ -83,17 +83,15 @@ func (c *AzureClient) ensureZonesLoaded(ctx context.Context) error {
 		return nil
 	}
 
-	var lastErr error
+	var err error
 	for i := 0; i < retries; i++ {
-		if err := c.tryFillCache(ctx); err == nil {
+		if err = c.tryFillCache(ctx); err == nil {
 			return nil
-		} else {
-			lastErr = err
-			c.cache = nil
-			time.Sleep(interval)
 		}
+		c.cache = nil
+		time.Sleep(interval)
 	}
-	return lastErr
+	return err
 }
 
 func (c *AzureClient) tryFillCache(ctx context.Context) error {

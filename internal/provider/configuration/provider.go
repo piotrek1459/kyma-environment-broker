@@ -155,7 +155,8 @@ func (p *ProviderSpec) MachineDisplayNames(cp runtime.CloudProvider, machines []
 func (p *ProviderSpec) ValidateZonesDiscovery() error {
 	for provider, providerDTO := range p.data {
 		if providerDTO.ZonesDiscovery {
-			if provider != "aws" && provider != "azure" {
+			cp := runtime.CloudProviderFromString(string(provider))
+			if cp != runtime.AWS && cp != runtime.Azure {
 				return fmt.Errorf("zone discovery is not yet supported for the %s provider", provider)
 			}
 
