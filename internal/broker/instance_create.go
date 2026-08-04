@@ -1160,20 +1160,18 @@ func newHyperscalerClient(
 	if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
 		return nil, fmt.Errorf("no credentials bindings found for selector %q", labelSelector)
 	}
-	credentialsBinding := gardener.NewCredentialsBinding(credentialsBindings.Items[0])
 
-	log.Info(fmt.Sprintf("getting subscription credentials with name %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
-	secret, err := gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
-	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
-	}
-
-	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create hyperscaler client: %w", err)
-	}
-
-	log.Info(fmt.Sprintf("validating zones for region=%s secret=%s/%s", values.Region, credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
-
-	return client, nil
+	return gardener.TryWithBindings(credentialsBindings.Items, log, func(cb *gardener.CredentialsBinding) (hyperscalers.ProviderClient, error) {
+		log.Info(fmt.Sprintf("getting subscription credentials with name %s/%s", cb.GetSecretRefNamespace(), cb.GetSecretRefName()))
+		secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+		if err != nil {
+			return nil, fmt.Errorf("unable to get secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
+		}
+		client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create hyperscaler client: %w", err)
+		}
+		log.Info(fmt.Sprintf("validating zones for region=%s secret=%s/%s", values.Region, cb.GetSecretRefNamespace(), cb.GetSecretRefName()))
+		return client, nil
+	})
 }
