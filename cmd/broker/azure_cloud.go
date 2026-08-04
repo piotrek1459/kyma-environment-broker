@@ -63,13 +63,34 @@ func resolveAzureCloudConfig(ctx context.Context, providerSpec *configuration.Pr
 		return cfg, nil
 	}
 
-	fetcher, err := buildAzureSecretFetcher(gardenerClient, rulesService, log)
-	if err != nil {
-		return azurecloud.Configuration{}, fmt.Errorf("Azure cloud auto-discovery not possible: %w", err)
+	attr := &rules.ProvisioningAttributes{
+		Plan:        "azure",
+		Hyperscaler: "azure",
 	}
-	creds, err := fetcher()
-	if err != nil {
-		return azurecloud.Configuration{}, fmt.Errorf("failed to fetch Azure credentials for cloud discovery: %w", err)
+	matchedRule, found := rulesService.MatchProvisioningAttributesWithValidRuleset(attr)
+	if !found {
+		return azurecloud.Configuration{}, fmt.Errorf("Azure cloud auto-discovery not possible: no matching rule for azure hyperscaler")
 	}
-	return azurehyperscaler.ResolveCloudConfig(ctx, creds)
+	labelSelector := subscriptions.NewLabelSelectorFromRuleset(matchedRule).BuildAnySubscription()
+
+	credentialsBindings, err := gardenerClient.GetCredentialsBindings(labelSelector)
+	if err != nil {
+		return azurecloud.Configuration{}, fmt.Errorf("while getting Azure credentials bindings: %w", err)
+	}
+	if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
+		return azurecloud.Configuration{}, fmt.Errorf("no Azure credentials bindings found for selector %q", labelSelector)
+	}
+
+	return gardener.TryWithBindings(credentialsBindings.Items, log, func(cb *gardener.CredentialsBinding) (azurecloud.Configuration, error) {
+		log.Info("trying Azure credentials for cloud discovery", "credentialBinding", cb.GetName())
+		secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+		if err != nil {
+			return azurecloud.Configuration{}, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
+		}
+		creds, err := azurehyperscaler.ExtractCredentials(secret)
+		if err != nil {
+			return azurecloud.Configuration{}, err
+		}
+		return azurehyperscaler.ResolveCloudConfig(ctx, creds)
+	})
 }
