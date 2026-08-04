@@ -35,11 +35,12 @@ func TestTryWithBindings_SingleItem_Success(t *testing.T) {
 	assert.Equal(t, "cb-0", result)
 }
 
-func TestTryWithBindings_EmptyItems_ReturnsNilError(t *testing.T) {
+func TestTryWithBindings_EmptyItems_ReturnsError(t *testing.T) {
 	_, err := TryWithBindings([]unstructured.Unstructured{}, testLog(), func(cb *CredentialsBinding) (string, error) {
 		return cb.GetName(), nil
 	})
-	assert.NoError(t, err, "empty list: tryFn never called, no error expected")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no credentials bindings to try")
 }
 
 func TestTryWithBindings_FirstFails_SecondSucceeds(t *testing.T) {

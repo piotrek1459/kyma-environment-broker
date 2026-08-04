@@ -1,6 +1,7 @@
 package gardener
 
 import (
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 
@@ -12,8 +13,13 @@ const maxBindingAttempts = 4
 // TryWithBindings tries up to maxBindingAttempts CredentialsBindings from items, in order:
 // first → middle → last → one random fallback. This avoids correlated failures when the
 // first alphabetically-sorted binding has expired credentials.
+// Returns an error if items is empty.
 func TryWithBindings[T any](items []unstructured.Unstructured, log *slog.Logger, tryFn func(*CredentialsBinding) (T, error)) (T, error) {
 	candidates := selectCandidates(items)
+	if len(candidates) == 0 {
+		var zero T
+		return zero, fmt.Errorf("no credentials bindings to try")
+	}
 
 	var lastErr error
 	for _, idx := range candidates {
