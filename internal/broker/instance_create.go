@@ -1162,15 +1162,15 @@ func newHyperscalerClient(
 	}
 
 	v := factory.NewBindingValidator(provider, gardenerClient, values.Region)
-	cb, err := gardener.FindValidBinding(ctx, credentialsBindings.Items, log, v)
+	credentialsBinding, err := gardener.FindValidBinding(ctx, credentialsBindings.Items, log, v)
 	if err != nil {
 		return nil, fmt.Errorf("no valid credentials binding found for %s: %w", provider, err)
 	}
 
-	log.Info(fmt.Sprintf("getting subscription secret with name %s/%s", cb.GetSecretRefNamespace(), cb.GetSecretRefName()))
-	secret, err := gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+	log.Info(fmt.Sprintf("getting subscription credentials with name %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
+	secret, err := gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
 	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
+		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
 	}
 
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)
@@ -1178,7 +1178,7 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("unable to create hyperscaler client: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("validating zones for region=%s secret=%s/%s", values.Region, cb.GetSecretRefNamespace(), cb.GetSecretRefName()))
+	log.Info(fmt.Sprintf("validating zones for region=%s secret=%s/%s", values.Region, credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
 
 	return client, nil
 }
