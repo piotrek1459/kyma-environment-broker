@@ -1161,17 +1161,14 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("no credentials bindings found for selector %q", labelSelector)
 	}
 
-	v, err := factory.NewBindingValidator(provider, gardenerClient, values.Region)
-	if err != nil {
-		return nil, fmt.Errorf("unsupported provider %s: %w", provider, err)
-	}
+	v := &gardener.SecretAccessValidator{GardenerClient: gardenerClient}
 	credentialsBinding, err := gardener.FindValidBinding(ctx, credentialsBindings.Items, log, v)
 	if err != nil {
 		return nil, fmt.Errorf("no valid credentials binding found for %s: %w", provider, err)
 	}
 
 	log.Info(fmt.Sprintf("getting subscription credentials with name %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
-	secret := v.DiscoveredSecret()
+	secret := v.Secret
 	if secret == nil {
 		secret, err = gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
 		if err != nil {

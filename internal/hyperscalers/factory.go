@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/kyma-project/kyma-environment-broker/common/gardener"
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
 	"github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/azure"
@@ -65,8 +64,4 @@ func (f *hyperscalerFactory) NewPerCallFromSecret(ctx context.Context, provider 
 	default:
 		return nil, fmt.Errorf("zone discovery not supported for provider %s", provider)
 	}
-}
-
-func (f *hyperscalerFactory) NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) (gardener.BindingValidator, error) {
-	return NewBindingValidator(provider, gardenerClient, region)
 }
