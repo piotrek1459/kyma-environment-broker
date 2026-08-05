@@ -147,15 +147,28 @@ func (h *HandlerCB) getSecret(provider string) (*unstructured.Unstructured, erro
 		return nil, err
 	}
 
-	credentialsBinding, err := h.getCredentialsBindingForRule(matchedRule)
+	labelSelector := subscriptions.NewLabelSelectorFromRuleset(matchedRule).BuildAnySubscription()
+	h.logger.Info(fmt.Sprintf("getting credentials bindings with selector %q", labelSelector))
+
+	credentialsBindings, err := h.gardenerClient.GetCredentialsBindings(labelSelector)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while getting credentials bindings with selector %q: %w", labelSelector, err)
+	}
+	if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
+		return nil, fmt.Errorf("no credentials bindings found for selector %q", labelSelector)
 	}
 
-	h.logger.Info(fmt.Sprintf("getting subscription secret with name %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
-	secret, err := h.gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
+	cp := runtime.CloudProviderFromString(provider)
+	v := h.factory.NewBindingValidator(cp, h.gardenerClient, "")
+	cb, err := gardener.FindValidBinding(context.Background(), credentialsBindings.Items, h.logger, v)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
+		return nil, fmt.Errorf("no valid credentials binding found for provider %s: %w", provider, err)
+	}
+
+	h.logger.Info(fmt.Sprintf("getting subscription secret with name %s/%s", cb.GetSecretRefNamespace(), cb.GetSecretRefName()))
+	secret, err := h.gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
 	}
 	return secret, nil
 }
@@ -173,20 +186,4 @@ func (h *HandlerCB) matchRule(provider string) (rules.Result, error) {
 
 	h.logger.Info(fmt.Sprintf("matched rule: %q", matchedRule.Rule()))
 	return matchedRule, nil
-}
-
-func (h *HandlerCB) getCredentialsBindingForRule(matchedRule rules.Result) (*gardener.CredentialsBinding, error) {
-	labelSelectorBuilder := subscriptions.NewLabelSelectorFromRuleset(matchedRule)
-	labelSelector := labelSelectorBuilder.BuildAnySubscription()
-
-	h.logger.Info(fmt.Sprintf("getting secret binding with selector %q", labelSelector))
-	credentialsBindings, err := h.gardenerClient.GetCredentialsBindings(labelSelector)
-	if err != nil {
-		return nil, fmt.Errorf("while getting secret bindings with selector %q: %w", labelSelector, err)
-	}
-	if credentialsBindings == nil || len(credentialsBindings.Items) == 0 {
-		return nil, fmt.Errorf("no credentials bindings found for selector %q", labelSelector)
-	}
-
-	return gardener.NewCredentialsBinding(credentialsBindings.Items[0]), nil
 }

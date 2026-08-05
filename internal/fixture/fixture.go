@@ -135,6 +135,21 @@ func (f *FakeFactory) NewPerCallFromSecret(_ context.Context, _ pkg.CloudProvide
 	return &fakeProviderClient{zones: f.zones}, nil
 }
 
+// NewBindingValidator returns a no-op validator that accepts any binding whose secret exists.
+// Tests use fake gardener clients with fake secrets — live cloud probes are not performed.
+func (f *FakeFactory) NewBindingValidator(_ pkg.CloudProvider, gardenerClient *gardener.Client, _ string) gardener.BindingValidator {
+	return &fakeBindingValidator{gardenerClient: gardenerClient}
+}
+
+type fakeBindingValidator struct {
+	gardenerClient *gardener.Client
+}
+
+func (v *fakeBindingValidator) Validate(ctx context.Context, cb *gardener.CredentialsBinding) error {
+	_, err := v.gardenerClient.GetSecret(cb.GetSecretRefNamespace(), cb.GetSecretRefName())
+	return err
+}
+
 type fakeProviderClient struct {
 	zones map[string][]string
 }
