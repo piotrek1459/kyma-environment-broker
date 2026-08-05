@@ -13,10 +13,10 @@ import (
 	"github.com/kyma-project/kyma-environment-broker/internal/subscriptions"
 )
 
-// buildAzureSecretFetcher returns a SecretFetcher that fetches the first available Azure
-// credentials secret from Gardener on each call. This ensures credential rotation is
-// picked up on every cache refresh without restarting KEB.
-func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rules.RulesService, log *slog.Logger) (azurehyperscaler.SecretFetcher, error) {
+// buildAzureSecretFetcher returns a SecretFetcher that fetches and validates Azure
+// credentials on each call. Validation uses a token probe against the known cloudConfig,
+// ensuring that a binding with stale credentials is skipped via TryWithBindings retry.
+func buildAzureSecretFetcher(ctx context.Context, gardenerClient *gardener.Client, rulesService *rules.RulesService, cloudConfig azurecloud.Configuration, log *slog.Logger) (azurehyperscaler.SecretFetcher, error) {
 	attr := &rules.ProvisioningAttributes{
 		Plan:        "azure",
 		Hyperscaler: "azure",
@@ -28,11 +28,11 @@ func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rule
 	labelSelector := subscriptions.NewLabelSelectorFromRuleset(matchedRule).BuildAnySubscription()
 
 	return func() (azurehyperscaler.AzureCredentials, error) {
-		return fetchAzureCredentials(gardenerClient, labelSelector, log)
+		return fetchAzureCredentials(ctx, gardenerClient, labelSelector, cloudConfig, log)
 	}, nil
 }
 
-func fetchAzureCredentials(gardenerClient *gardener.Client, labelSelector string, log *slog.Logger) (azurehyperscaler.AzureCredentials, error) {
+func fetchAzureCredentials(ctx context.Context, gardenerClient *gardener.Client, labelSelector string, cloudConfig azurecloud.Configuration, log *slog.Logger) (azurehyperscaler.AzureCredentials, error) {
 	credentialsBindings, err := gardenerClient.GetCredentialsBindings(labelSelector)
 	if err != nil {
 		return azurehyperscaler.AzureCredentials{}, fmt.Errorf("while getting Azure credentials bindings: %w", err)
@@ -46,7 +46,14 @@ func fetchAzureCredentials(gardenerClient *gardener.Client, labelSelector string
 		if err != nil {
 			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("unable to get Azure secret %s/%s: %w", cb.GetSecretRefNamespace(), cb.GetSecretRefName(), err)
 		}
-		return azurehyperscaler.ExtractCredentials(secret)
+		creds, err := azurehyperscaler.ExtractCredentials(secret)
+		if err != nil {
+			return azurehyperscaler.AzureCredentials{}, err
+		}
+		if err := azurehyperscaler.ValidateCredentials(ctx, creds, cloudConfig); err != nil {
+			return azurehyperscaler.AzureCredentials{}, fmt.Errorf("credentials validation failed for binding %s: %w", cb.GetName(), err)
+		}
+		return creds, nil
 	})
 }
 

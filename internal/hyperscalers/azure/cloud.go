@@ -43,6 +43,15 @@ var probeOrder = []struct {
 	{hyperscaler.AzureCloudUSGovernment, cloud.AzureGovernment},
 }
 
+// ValidateCredentials checks that the given credentials successfully acquire an ARM token
+// for the specified cloud. Returns nil on success, error on auth failure.
+func ValidateCredentials(ctx context.Context, creds AzureCredentials, cfg cloud.Configuration) error {
+	if !probeCloud(ctx, creds, cfg) {
+		return fmt.Errorf("credentials for binding did not authenticate against Azure cloud")
+	}
+	return nil
+}
+
 // ResolveCloudConfig probes Public → China → US Gov and returns the first cloud
 // that accepts the credentials. Intended to be called once at KEB startup.
 func ResolveCloudConfig(ctx context.Context, creds AzureCredentials) (cloud.Configuration, error) {
