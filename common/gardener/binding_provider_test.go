@@ -34,6 +34,8 @@ func (v *recordingValidator) Validate(_ context.Context, cb *CredentialsBinding)
 	return nil
 }
 
+func (v *recordingValidator) DiscoveredSecret() *unstructured.Unstructured { return nil }
+
 func makeBindingItems(names ...string) []unstructured.Unstructured {
 	items := make([]unstructured.Unstructured, len(names))
 	for i, name := range names {
@@ -169,6 +171,8 @@ func (v *statefulValidator) Validate(_ context.Context, cb *CredentialsBinding) 
 	}
 	return nil
 }
+
+func (v *statefulValidator) DiscoveredSecret() *unstructured.Unstructured { return nil }
 
 func TestSelectCandidates_NoDuplicates(t *testing.T) {
 	for n := 1; n <= 10; n++ {

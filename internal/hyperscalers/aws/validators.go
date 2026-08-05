@@ -10,7 +10,8 @@ import (
 
 // AWSBindingValidator validates a CredentialsBinding by fetching its secret and
 // verifying the credentials can be extracted (correct format and base64 encoding).
-// Stores DiscoveredSecret so callers avoid a second GetSecret call.
+// After successful Validate, DiscoveredSecret returns the fetched secret so callers
+// avoid a second GetSecret call.
 //
 // Unlike AzureBindingValidator, no live API probe is performed — AWS credentials
 // are validated lazily on the first EC2/STS API call. A format-only check here is
@@ -18,7 +19,7 @@ import (
 type AWSBindingValidator struct {
 	GardenerClient   *gardener.Client
 	Region           string
-	DiscoveredSecret *unstructured.Unstructured
+	discoveredSecret *unstructured.Unstructured
 }
 
 func (v *AWSBindingValidator) Validate(ctx context.Context, cb *gardener.CredentialsBinding) error {
@@ -29,6 +30,10 @@ func (v *AWSBindingValidator) Validate(ctx context.Context, cb *gardener.Credent
 	if _, _, err := ExtractCredentials(secret); err != nil {
 		return err
 	}
-	v.DiscoveredSecret = secret
+	v.discoveredSecret = secret
 	return nil
+}
+
+func (v *AWSBindingValidator) DiscoveredSecret() *unstructured.Unstructured {
+	return v.discoveredSecret
 }

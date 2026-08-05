@@ -67,6 +67,6 @@ func (f *hyperscalerFactory) NewPerCallFromSecret(ctx context.Context, provider 
 	}
 }
 
-func (f *hyperscalerFactory) NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) gardener.BindingValidator {
+func (f *hyperscalerFactory) NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) (gardener.BindingValidator, error) {
 	return NewBindingValidator(provider, gardenerClient, region)
 }

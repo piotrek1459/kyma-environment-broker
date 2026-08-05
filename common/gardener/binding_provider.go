@@ -14,9 +14,13 @@ const maxBindingAttempts = 4
 
 // BindingValidator validates a CredentialsBinding — typically by fetching its secret
 // and verifying the credentials work against the cloud provider.
-// Implementations store their result so callers can reuse it without a second fetch.
+// After successful Validate, DiscoveredSecret returns the fetched secret so callers
+// can reuse it without a second GetSecret call.
 type BindingValidator interface {
 	Validate(ctx context.Context, cb *CredentialsBinding) error
+	// DiscoveredSecret returns the raw Gardener secret fetched during Validate.
+	// Returns nil if Validate has not been called successfully yet.
+	DiscoveredSecret() *unstructured.Unstructured
 }
 
 // FindValidBinding iterates over items in order: first → middle → last → one random fallback,

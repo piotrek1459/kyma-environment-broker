@@ -6,19 +6,21 @@ import (
 
 	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/kyma-project/kyma-environment-broker/common/gardener"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // AzureBindingValidator validates a CredentialsBinding by fetching its secret,
 // extracting Azure credentials, and probing the Azure cloud (public/china/gov).
-// Stores DiscoveredCloud and DiscoveredCreds so callers avoid a second fetch.
+// After successful Validate, DiscoveredSecret, DiscoveredCloud, and DiscoveredCreds
+// are populated so callers can reuse them without additional fetches.
 //
 // cloudProbe allows injecting a fake resolver in tests; nil means use ResolveCloudConfig.
 type AzureBindingValidator struct {
-	GardenerClient  *gardener.Client
-	DiscoveredCloud azurecloud.Configuration
-	DiscoveredCreds AzureCredentials
-	// cloudProbe is injectable for tests; nil → real ResolveCloudConfig
-	cloudProbe func(ctx context.Context, creds AzureCredentials) (azurecloud.Configuration, error)
+	GardenerClient   *gardener.Client
+	DiscoveredCloud  azurecloud.Configuration
+	DiscoveredCreds  AzureCredentials
+	cloudProbe       func(ctx context.Context, creds AzureCredentials) (azurecloud.Configuration, error)
+	discoveredSecret *unstructured.Unstructured
 }
 
 func (v *AzureBindingValidator) Validate(ctx context.Context, cb *gardener.CredentialsBinding) error {
@@ -40,6 +42,11 @@ func (v *AzureBindingValidator) Validate(ctx context.Context, cb *gardener.Crede
 	}
 	v.DiscoveredCloud = cloudCfg
 	v.DiscoveredCreds = creds
+	v.discoveredSecret = secret
 	return nil
+}
+
+func (v *AzureBindingValidator) DiscoveredSecret() *unstructured.Unstructured {
+	return v.discoveredSecret
 }
 

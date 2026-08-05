@@ -1161,16 +1161,22 @@ func newHyperscalerClient(
 		return nil, fmt.Errorf("no credentials bindings found for selector %q", labelSelector)
 	}
 
-	v := factory.NewBindingValidator(provider, gardenerClient, values.Region)
+	v, err := factory.NewBindingValidator(provider, gardenerClient, values.Region)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported provider %s: %w", provider, err)
+	}
 	credentialsBinding, err := gardener.FindValidBinding(ctx, credentialsBindings.Items, log, v)
 	if err != nil {
 		return nil, fmt.Errorf("no valid credentials binding found for %s: %w", provider, err)
 	}
 
 	log.Info(fmt.Sprintf("getting subscription credentials with name %s/%s", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName()))
-	secret, err := gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
-	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
+	secret := v.DiscoveredSecret()
+	if secret == nil {
+		secret, err = gardenerClient.GetSecret(credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName())
+		if err != nil {
+			return nil, fmt.Errorf("unable to get secret %s/%s: %w", credentialsBinding.GetSecretRefNamespace(), credentialsBinding.GetSecretRefName(), err)
+		}
 	}
 
 	client, err := factory.NewFromSecret(ctx, provider, secret, values.Region)

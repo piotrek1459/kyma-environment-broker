@@ -17,7 +17,7 @@ import (
 // buildAzureSecretFetcher returns a SecretFetcher backed by a BindingProvider that caches
 // the last known-good CredentialsBinding. On each cache refresh the cached binding is
 // re-validated; if it fails a new one is searched via FindValidBinding.
-func buildAzureSecretFetcher(ctx context.Context, gardenerClient *gardener.Client, rulesService *rules.RulesService, log *slog.Logger) (azurehyperscaler.SecretFetcher, error) {
+func buildAzureSecretFetcher(gardenerClient *gardener.Client, rulesService *rules.RulesService, log *slog.Logger) (azurehyperscaler.SecretFetcher, error) {
 	items, err := listAzureBindingItems(gardenerClient, rulesService)
 	if err != nil {
 		return nil, err
@@ -25,8 +25,10 @@ func buildAzureSecretFetcher(ctx context.Context, gardenerClient *gardener.Clien
 
 	provider := gardener.NewBindingProvider(items, log)
 	return func() (azurehyperscaler.AzureCredentials, error) {
+		// Use a fresh background context — the startup ctx would be stale by the time
+		// this fetcher is called during hourly cache refresh.
 		v := &azurehyperscaler.AzureBindingValidator{GardenerClient: gardenerClient}
-		_, err := provider.Get(ctx, v)
+		_, err := provider.Get(context.Background(), v)
 		if err != nil {
 			return azurehyperscaler.AzureCredentials{}, err
 		}

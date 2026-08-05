@@ -21,5 +21,6 @@ type Factory interface {
 	NewPerCallFromSecret(ctx context.Context, provider pkg.CloudProvider, secret *unstructured.Unstructured, region string) (ProviderClient, error)
 	// NewBindingValidator returns a validator appropriate for the given provider.
 	// Callers use it with gardener.FindValidBinding to select a working CredentialsBinding.
-	NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) gardener.BindingValidator
+	// Returns an error for unsupported providers.
+	NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) (gardener.BindingValidator, error)
 }

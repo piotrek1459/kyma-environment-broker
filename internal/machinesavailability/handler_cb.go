@@ -188,6 +188,9 @@ func (h *HandlerCB) getCredentialsBindingForRule(provider string, matchedRule ru
 	}
 
 	cp := runtime.CloudProviderFromString(provider)
-	v := h.factory.NewBindingValidator(cp, h.gardenerClient, "")
+	v, err := h.factory.NewBindingValidator(cp, h.gardenerClient, "")
+	if err != nil {
+		return nil, fmt.Errorf("unsupported provider %s: %w", provider, err)
+	}
 	return gardener.FindValidBinding(context.Background(), credentialsBindings.Items, h.logger, v)
 }

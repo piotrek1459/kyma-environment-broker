@@ -1,6 +1,8 @@
 package hyperscalers
 
 import (
+	"fmt"
+
 	pkg "github.com/kyma-project/kyma-environment-broker/common/runtime"
 	"github.com/kyma-project/kyma-environment-broker/common/gardener"
 	awshyperscaler "github.com/kyma-project/kyma-environment-broker/internal/hyperscalers/aws"
@@ -9,15 +11,15 @@ import (
 
 // NewBindingValidator returns a BindingValidator for the given cloud provider.
 // Azure: probes cloud (public/china/gov) + extracts credentials — stores DiscoveredCloud and DiscoveredCreds.
-// AWS:   calls sts.GetCallerIdentity as an eager probe — stores DiscoveredSecret.
-// Panics for unsupported providers — callers must only call this for providers with zones discovery enabled.
-func NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) gardener.BindingValidator {
+// AWS:   format-checks credentials — stores DiscoveredSecret.
+// Returns an error for unsupported providers instead of panicking.
+func NewBindingValidator(provider pkg.CloudProvider, gardenerClient *gardener.Client, region string) (gardener.BindingValidator, error) {
 	switch provider {
 	case pkg.Azure:
-		return &azurehyperscaler.AzureBindingValidator{GardenerClient: gardenerClient}
+		return &azurehyperscaler.AzureBindingValidator{GardenerClient: gardenerClient}, nil
 	case pkg.AWS:
-		return &awshyperscaler.AWSBindingValidator{GardenerClient: gardenerClient, Region: region}
+		return &awshyperscaler.AWSBindingValidator{GardenerClient: gardenerClient, Region: region}, nil
 	default:
-		panic("NewBindingValidator: unsupported provider " + string(provider))
+		return nil, fmt.Errorf("NewBindingValidator: unsupported provider %q", provider)
 	}
 }
