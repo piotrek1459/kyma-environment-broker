@@ -13,15 +13,7 @@ spec:
   hosts:
   - {{ .Values.host }}.{{ .Values.global.ingress.domainName }}
   http:
-  - corsPolicy:
-      allowHeaders:
-      - Authorization
-      - Content-Type
-      - X-Broker-API-Version
-      allowMethods: ["GET", "PUT", "DELETE"]
-      allowOrigins:
-      - regex: ".*"
-    match:
+  - match:
     - uri:
         regex: /oauth/([^/]+/)?v2/.*
     route:
@@ -29,14 +21,7 @@ spec:
         host: {{ include "kyma-env-broker.fullname" . }}
         port:
           number: 80
-  - corsPolicy:
-      allowHeaders:
-      - Authorization
-      - Content-Type
-      allowMethods: ["POST"]
-      allowOrigins:
-      - regex: ".*"
-    match:
+  - match:
     - uri:
         regex: /upgrade/.*
     route:
@@ -44,14 +29,7 @@ spec:
         host: {{ include "kyma-env-broker.fullname" . }}
         port:
           number: 80
-  - corsPolicy:
-      allowHeaders:
-      - Authorization
-      - Content-Type
-      allowMethods: ["GET", "PUT"]
-      allowOrigins:
-      - regex: ".*"
-    match:
+  - match:
     - uri:
         regex: /orchestrations.*
     route:
@@ -65,7 +43,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-      - regex: ".*"
+      - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           regex: /runtimes
@@ -80,7 +58,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-      - regex: ".*"
+      - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           regex: /events
@@ -95,7 +73,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-        - regex: ".*"
+        - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           regex: /version
@@ -104,15 +82,8 @@ spec:
           host: {{ include "kyma-env-broker.fullname" . }}
           port:
             number: 80
-  # kubeconfig endpoint exposed without authorization
-  - corsPolicy:
-      allowHeaders:
-        - Authorization
-        - Content-Type
-      allowMethods: ["GET"]
-      allowOrigins:
-      - regex: ".*"
-    match:
+  # kubeconfig endpoint exposed without authorization; CORS handled at application level
+  - match:
       - uri:
           regex: /kubeconfig/.*
     route:
@@ -128,7 +99,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-      - regex: ".*"
+      - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           exact: /
@@ -143,7 +114,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-      - regex: ".*"
+      - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           regex: /swagger.*
@@ -158,7 +129,7 @@ spec:
         - Content-Type
       allowMethods: ["GET"]
       allowOrigins:
-      - regex: ".*"
+      - exact: {{ .Values.corsPolicy.allowOrigin | quote }}
     match:
       - uri:
           regex: /schema.*

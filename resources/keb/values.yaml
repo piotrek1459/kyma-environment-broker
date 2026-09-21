@@ -399,6 +399,11 @@ infrastructureManager:
   # If true, provisions trial and freemium clusters using smaller machine types.
   useSmallerMachineTypes: "false"
 
+corsPolicy:
+  # Specifies the allowed origin for browser-facing VirtualService routes (CORS).
+  # Set to the Cockpit UI domain. OSB/API-to-API routes have no CORS policy.
+  allowOrigin: "https://dashboard.kyma.cloud.sap"
+
 kubeconfig:
   # Specifies which origins are allowed for Cross-Origin Resource Sharing (CORS) on the /kubeconfig endpoint.
   allowOrigins: "*"
