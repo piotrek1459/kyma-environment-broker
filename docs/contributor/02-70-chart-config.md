@@ -174,6 +174,7 @@
 | infrastructureManager.<br>maxPods | Sets the maximum number of Pods per node for global accounts in the max Pods allowlist. | `200` |
 | infrastructureManager.<br>multiZoneCluster | If true, enables provisioning of clusters with nodes distributed across multiple availability zones. | `true` |
 | infrastructureManager.<br>useSmallerMachineTypes | If true, provisions trial and freemium clusters using smaller machine types. | `false` |
+| corsPolicy.<br>allowOrigin | Specifies the allowed origin for browser-facing VirtualService routes (CORS). Set to the Cockpit UI domain. OSB/API-to-API routes have no CORS policy. | `https://dashboard.kyma.cloud.sap` |
 | kubeconfig.<br>allowOrigins | Specifies which origins are allowed for Cross-Origin Resource Sharing (CORS) on the /kubeconfig endpoint. | `*` |
 | kymaDashboardConfig.<br>landscapeURL | The base URL of the Kyma Dashboard used to generate links to the web UI for Kyma runtimes. | `https://dashboard.dev.kyma.cloud.sap` |
 | metricsv2.<br>availableCredentialsBindingsPollingInterval | Frequency of polling for available credentials bindings in Gardener. | `1h` |
