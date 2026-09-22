@@ -765,6 +765,17 @@ vmscrapes:
   scrapeTimeout: *scrapeTimeout
 # =================================================
 
+# =================================================
+# Metrics endpoint authorization
+# =================================================
+metrics:
+  # Namespaces whose pods are allowed to scrape the unauthenticated /metrics endpoint.
+  # Restrict to the monitoring/vmagent namespace that scrapes KEB. Confirm the actual
+  # scraper namespace for the target landscape before deploying.
+  scraperNamespaces:
+    - kyma-system
+# =================================================
+
 
 
 # =================================================

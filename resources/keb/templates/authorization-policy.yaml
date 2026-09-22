@@ -41,7 +41,13 @@ metadata:
 spec:
   action: ALLOW
   rules:
-    - to:
+    - from:
+        - source:
+            namespaces:
+{{- range .Values.metrics.scraperNamespaces }}
+              - {{ . | quote }}
+{{- end }}
+      to:
         - operation:
             paths:
               - /metrics
@@ -60,14 +66,21 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: istio-oauth2-local
+  name: istio-expire
   namespace: kcp-system
 spec:
   action: ALLOW
   rules:
     - from:
         - source:
-            namespaces: ["kcp-system"]
+            principals:
+              - cluster.local/ns/{{ .Release.Namespace }}/sa/{{ .Values.global.kyma_environment_broker.serviceAccountName }}
+      to:
+        - operation:
+            methods:
+              - PUT
+            paths:
+              - /expire/*
 {{- if not .Values.global.istio.ambient.enabled }}
   selector:
     matchLabels:

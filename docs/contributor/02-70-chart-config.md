@@ -289,6 +289,7 @@
 | vmscrapes.enabled | - | `True` |
 | vmscrapes.interval | - | `30s` |
 | vmscrapes.<br>scrapeTimeout | - | `10s` |
+| metrics.<br>scraperNamespaces | Namespaces whose pods are allowed to scrape the unauthenticated /metrics endpoint. Restrict to the monitoring/vmagent namespace that scrapes KEB. Confirm the actual scraper namespace for the target landscape before deploying. | `- kyma-system` |
 | vsoSecrets.secrets.cis-v2.<br>path | - | `cis` |
 | vsoSecrets.secrets.cis-v2.<br>secretName | - | `{{ .Values.cis.v2.secretName \| required "please specify .Values.cis.v2.secretName"}}` |
 | vsoSecrets.secrets.cis-v2.<br>restartTargets | - | `- {'kind': 'Deployment', 'name': '{{- .Values.subaccountSync.name -}}'}` |
