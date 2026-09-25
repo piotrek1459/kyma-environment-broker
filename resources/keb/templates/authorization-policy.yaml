@@ -73,8 +73,6 @@ spec:
         - source:
             principals:
               - cluster.local/ns/kcp-system/sa/{{ .Values.global.kyma_environment_broker.serviceAccountName }}
-            namespaces:
-              - kcp-system
 {{- if not .Values.global.istio.ambient.enabled }}
   selector:
     matchLabels:
