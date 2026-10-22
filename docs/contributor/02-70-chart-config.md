@@ -141,7 +141,7 @@
 | configPaths.<br>skrDNSProvidersValues | Path to the DNS providers values. | `/config/skrDNSProvidersValues.yaml` |
 | configPaths.<br>skrOIDCDefaultValues | Path to the default OIDC values. | `/config/skrOIDCDefaultValues.yaml` |
 | configPaths.<br>trialRegionMapping | Path to the region mapping for trial environments. | `/config/trialRegionMapping.yaml` |
-| configPaths.<br>cloudsqlSSLRootCert | Path to the Cloud SQL SSL root certificate file. | `/secrets/cloudsql-sslrootcert/server-ca.pem` |
+| configPaths.<br>cloudsqlSSLRootCert | Path to the Cloud SQL SSL root certificate file. If not provided, the broker does not add sslrootcert parameter to the database connection string. | `` |
 | disableProcessOperationsInProgress | If true, the broker does NOT resume processing operations (provisioning, deprovisioning, updating, etc.) that were in progress when the broker process last stopped or restarted. | `false` |
 | operationRecoveryDelay | Delay after startup before running a scan for in-progress operations, to recover operations orphaned during rolling deployments. | `2m` |
 | events.enabled | Enables or disables the events API and event storage for operation events (true/false). | `True` |

@@ -293,8 +293,8 @@ configPaths:
   skrOIDCDefaultValues: "/config/skrOIDCDefaultValues.yaml"
   # Path to the region mapping for trial environments.
   trialRegionMapping: "/config/trialRegionMapping.yaml"
-  # Path to the Cloud SQL SSL root certificate file.
-  cloudsqlSSLRootCert: "/secrets/cloudsql-sslrootcert/server-ca.pem"
+  # Path to the Cloud SQL SSL root certificate file. If not provided, the broker does not add sslrootcert parameter to the database connection string.
+  cloudsqlSSLRootCert: ""
 
 # If true, the broker does NOT resume processing operations (provisioning, deprovisioning, updating, etc.) that were in progress when the broker process last stopped or restarted.
 disableProcessOperationsInProgress: "false"
